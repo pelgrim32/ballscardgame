@@ -8,6 +8,13 @@
         ".write": "$code.matches(/^[A-Z]{4}(_lock)?$/)",
         "json": { ".validate": "newData.isString() && newData.val().length < 200000" }
       }
+    },
+    "lobby": {
+      ".read": true,
+      "$code": {
+        ".write": "$code.matches(/^[A-Z]{4}$/)",
+        ".validate": "newData.hasChildren(['n', 'p', 'm', 'at'])"
+      }
     }
   }
 }
