@@ -121,7 +121,7 @@ html .deck .card{position:absolute;left:0;top:0}
 .status{text-align:center;font-weight:700;font-size:clamp(18px,4.8vw,23px);letter-spacing:.03em;min-height:1.3em;text-shadow:2px 2px 0 var(--panel-lo)}
 .status small{display:block;font-weight:500;font-size:13px;color:var(--ink-dim);letter-spacing:0;margin-top:2px}
 .hand{display:flex;justify-content:center;align-items:flex-end;min-height:calc(var(--ch) + 24px);padding-top:22px}
-.hand .card{margin-left:calc(var(--cw)*var(--ov,-.16));transition:transform .15s ease;cursor:pointer;animation:sway 3.2s ease-in-out infinite;animation-delay:calc(var(--i,0)*-.45s)}
+.hand .card{margin-left:calc(var(--cw)*var(--ov,-.16));transition:transform .15s ease;cursor:pointer;animation:sway 3.2s ease-in-out infinite;animation-delay:calc(var(--t0,0s) + var(--i,0)*-.45s)}
 @keyframes sway{0%,100%{translate:0 0;rotate:-1.2deg}50%{translate:0 -3px;rotate:1.2deg}}
 .hand .card:first-child{margin-left:0}
 .hand .card.sel{transform:translateY(-22px)}
@@ -136,13 +136,15 @@ html .deck .card{position:absolute;left:0;top:0}
   .hand.locked .card:hover{transform:translateY(-6px);filter:brightness(1.05)}
   .availrow .card.pick:hover,#b-deck:not([disabled]):hover .card:last-child{transform:translateY(-8px) rotate(var(--rot,0deg));filter:brightness(1.1)}
 }
-.screen.my-turn::before{content:"";position:fixed;inset:0;pointer-events:none;z-index:4;border-radius:2px;
-  box-shadow:inset 0 0 0 3px var(--turn),inset 0 0 26px color-mix(in srgb,var(--turn) 60%,transparent),inset 0 0 70px color-mix(in srgb,var(--turn) 22%,transparent);
-  animation:turnglow 1.8s ease-in-out infinite}
-@keyframes turnglow{0%,100%{opacity:.75}50%{opacity:1}}
-.skin-classic .screen.my-turn::before{inset:max(10px,1.4vmin)}
-.skin-sketch .screen.my-turn::before{box-shadow:inset 0 0 0 4px var(--turn),inset 0 0 0 6px rgba(34,48,92,.5),inset 0 0 30px color-mix(in srgb,var(--turn) 35%,transparent)}
-.skin-pixel .screen.my-turn::before,html:not(.ui-felt):not(.skin-neon):not(.skin-sketch) .screen.my-turn::before{animation-timing-function:steps(2,end)}
+.turnglow{position:fixed;inset:0;z-index:4;pointer-events:none;opacity:0;transition:opacity .35s ease;will-change:opacity;
+  --tg:color-mix(in srgb,var(--turn) 45%,transparent);
+  border:3px solid var(--turn);
+  background:linear-gradient(90deg,var(--tg),transparent 30px),linear-gradient(270deg,var(--tg),transparent 30px),linear-gradient(180deg,var(--tg),transparent 30px),linear-gradient(0deg,var(--tg),transparent 30px)}
+.turnglow.on{opacity:1;animation:turnglow 2s ease-in-out infinite}
+@keyframes turnglow{0%,100%{opacity:.7}50%{opacity:1}}
+.skin-classic .turnglow{inset:max(10px,1.4vmin)}
+.skin-sketch .turnglow{border-width:4px;--tg:color-mix(in srgb,var(--turn) 30%,transparent)}
+@media (prefers-reduced-motion:reduce){.turnglow.on{animation:none}}
 .hand .card.sel::after{content:"";position:absolute;inset:-4px;border:3px solid var(--gold);border-radius:calc(var(--cw)*.1 + 3px);pointer-events:none}
 .hand.locked .card{cursor:default}
 .dock{display:flex;align-items:center;gap:6px}
@@ -535,7 +537,7 @@ html .deck .card{position:absolute;left:0;top:0}
 </style>
 
 </head><body style="margin:0">
-<div class="fx" aria-hidden="true"></div><div class="fx2" aria-hidden="true"></div>
+<div class="fx" aria-hidden="true"></div><div class="fx2" aria-hidden="true"></div><div class="turnglow" id="turnglow" aria-hidden="true"></div>
 <div id="app"></div>
 <div id="layer"></div>
 
@@ -842,10 +844,38 @@ const SFX={
   /* a card flicked off the deck or the pile */
   grab(delayMs=0){ const a=audio(); if(!a||!sfxOn||a.state!=='running') return; const t=a.currentTime+delayMs/1000;
     noise(a,t,{freq:1100,freqEnd:3000,q:.8,gain:.38,attack:.01,decay:.08}); },
+  /* your turn: two soft rising chimes */
+  turn(){ const a=audio(); if(!a||!sfxOn||a.state!=='running') return; const t=a.currentTime+.02;
+    tone(a,t,{f:659,type:'triangle',gain:.12,dur:.16}); tone(a,t+.12,{f:988,type:'triangle',gain:.12,dur:.28}); tone(a,t+.12,{f:1976,type:'sine',gain:.03,dur:.2}); },
+  /* you won the round: bright arpeggio into a shimmering chord */
+  win(){ const a=audio(); if(!a||!sfxOn||a.state!=='running') return; const t=a.currentTime+.02;
+    [523,659,784,1047].forEach((f,i)=>tone(a,t+i*.08,{f,type:'triangle',gain:.13,dur:.22}));
+    [1047,1319,1568].forEach(f=>tone(a,t+.34,{f,type:'sine',gain:.07,dur:.8}));
+    noise(a,t+.34,{freq:7000,q:.8,gain:.05,attack:.05,decay:.6}); },
+  /* you called Balls and it was false: wah, wah, wah, waaah */
+  falseBalls(){ const a=audio(); if(!a||!sfxOn||a.state!=='running') return; const t0=a.currentTime+.02;
+    [[311,.26],[294,.26],[277,.26],[262,.9]].forEach(([f,d],i)=>{ const t=t0+i*.3;
+      const o=a.createOscillator(); o.type='sawtooth'; o.frequency.setValueAtTime(f*1.03,t); o.frequency.linearRampToValueAtTime(f,t+.06);
+      const lp=a.createBiquadFilter(); lp.type='lowpass'; lp.Q.value=6; lp.frequency.setValueAtTime(350,t); lp.frequency.linearRampToValueAtTime(1300,t+.08); lp.frequency.linearRampToValueAtTime(500,t+d);
+      if(i===3){ const l=a.createOscillator(); l.frequency.value=6; const lg=a.createGain(); lg.gain.value=7; l.connect(lg).connect(o.frequency); l.start(t); l.stop(t+d+.05); }
+      const g=a.createGain(); g.gain.setValueAtTime(.0001,t); g.gain.exponentialRampToValueAtTime(.16,t+.04); g.gain.setValueAtTime(.16,t+d-.08); g.gain.exponentialRampToValueAtTime(.0001,t+d);
+      o.connect(lp).connect(g).connect(a.destination); o.start(t); o.stop(t+d+.05); }); },
+  /* lost the round or the game: three falling soft notes */
+  lose(){ const a=audio(); if(!a||!sfxOn||a.state!=='running') return; const t=a.currentTime+.02;
+    [[392,.22],[311,.22],[262,.6]].forEach(([f,d],i)=>{ tone(a,t+i*.2,{f,type:'triangle',gain:.11,dur:d}); tone(a,t+i*.2,{f:f/2,type:'sine',gain:.05,dur:d}); }); },
   /* riffle shuffle */
   shuffle(){ const a=audio(); if(!a||!sfxOn||a.state!=='running') return; flaps(a,a.currentTime,16,{gap:.03,freq:2300,gain:.2,shrink:.97});
     noise(a,a.currentTime+.5,{freq:1500,q:.6,gain:.35,attack:.004,decay:.09}); }
 };
+/* which jingle this player hears when a round or game ends */
+function outcomeJingle(st){
+  const r=st.result; if(!r||!st.players.some(p=>p.id===me)) return;
+  if(st.phase==='over'){ const champ=st.players.find(p=>!p.out); return champ&&champ.id===me ? SFX.win() : SFX.lose(); }
+  if(r.winner===me) return SFX.win();
+  if(r.falseB && r.caller===me) return SFX.falseBalls();
+  SFX.lose();
+}
+let lastTurnChime=null;
 function splash(){ const d=document.createElement('div'); d.className='splash'; d.innerHTML='<span>BALLS!</span>'; document.body.appendChild(d); setTimeout(()=>d.remove(),1350); }
 
 /* ================= CONTROLLER ================= */
@@ -887,7 +917,7 @@ async function act(fn){
 
 function afterState(prev){
   if(S && S.result && (S.phase==='reveal'||S.phase==='over') && lastSplash!==S.result.id){
-    splash(); lastSplash=S.result.id;
+    splash(); outcomeJingle(S); lastSplash=S.result.id;
   }
   const before = (prev && S && prev.phase==='play') ? snapRects() : null;
   render();
@@ -1087,7 +1117,9 @@ function render(){
   const prevScreen=document.querySelector('#app .screen'), prevKind=prevScreen?prevScreen.className:'', prevTop=prevScreen?prevScreen.scrollTop:0;
   try{ renderInner(); }finally{ const now=document.querySelector('#app .screen'); if(now&&prevTop&&now.className===prevKind) now.scrollTop=prevTop; }
 }
+function setTurnGlow(on){ const g=document.getElementById('turnglow'); if(g) g.classList.toggle('on',!!on); }
 function renderInner(){
+  setTurnGlow(false);
   layer.innerHTML='';
   useRules(S);
   if(!mode){ renderHome(); if(showRules) renderRulesSheet(); return; }
@@ -1212,7 +1244,9 @@ function renderGame(){
   hand.forEach(c=>seenHand.add(c));
 
   const rot=i=>((i*7)%11-5);
-  app.innerHTML=`<div class="screen${myTurn?' my-turn':''}">
+  setTurnGlow(myTurn);
+  if(myTurn && S.step==='throw'){ const k=S.round+':'+S.turnAt; if(k!==lastTurnChime){ lastTurnChime=k; SFX.turn(); } }
+  app.innerHTML=`<div class="screen">
     <div class="top">
       <span class="pill">${mode==='online'?'Table '+esc(roomCode)+' · ':''}Round ${S.round}</span>
       <span class="grow"></span>
@@ -1243,7 +1277,7 @@ function renderGame(){
       ${S.thrown&&S.thrown.length?`<div class="mythrow"><div class="cards">${S.thrown.map(c=>cardHTML(c,{attrs:`data-card="${c}"`})).join('')}</div><span class="cap" style="font-size:10px;color:var(--ink-dim)">${myTurn?'Your throw':esc(cur.name)+'’s throw'}</span></div>`:''}
     </div>
     <div class="status" aria-live="polite">${status} <span class="ttimer" id="tt" hidden></span><small>${sub}</small></div>
-    <div class="hand ${myTurn&&S.step==='throw'?'':'locked'}" role="group" aria-label="Your hand" style="--ov:${hand.length<=4?-.1:hand.length===5?-.2:hand.length===6?-.34:-.45}">${spectator?'<p class="note">You are watching this game.</p>':hand.map((c,i)=>cardHTML(c,{cls:(sel.has(c)?'sel ':'')+(newCards.includes(c)&&seenHand.size>1?'new':''),attrs:`style="--i:${i}" data-c="${c}" data-card="${c}" tabindex="0" role="button" aria-pressed="${sel.has(c)}" aria-label="${label(c)}"`})).join('')}</div>
+    <div class="hand ${myTurn&&S.step==='throw'?'':'locked'}" role="group" aria-label="Your hand" style="--ov:${hand.length<=4?-.1:hand.length===5?-.2:hand.length===6?-.34:-.45};--t0:${-((Date.now()%3200)/1000).toFixed(3)}s">${spectator?'<p class="note">You are watching this game.</p>':hand.map((c,i)=>cardHTML(c,{cls:(sel.has(c)?'sel ':'')+(newCards.includes(c)&&seenHand.size>1?'new':''),attrs:`style="--i:${i}" data-c="${c}" data-card="${c}" tabindex="0" role="button" aria-pressed="${sel.has(c)}" aria-label="${label(c)}"`})).join('')}</div>
     <div class="dock">
       <div class="total ${hv<=RULES.callMax?'low':''}"><b>${hv}</b><span>hand</span></div>
       <div class="total"><b>${meP?meP.score:'–'}</b><span>score</span>${meP?rankBadge(S,me):''}</div>
@@ -1365,7 +1399,7 @@ function claudeLobby(db){
 function settingsHTML(){
   return `<div class="row" style="justify-content:space-between;align-items:flex-start"><span style="padding-top:8px">Theme</span><div class="seg wrap" role="group" aria-label="Theme"><button data-skin="pixel" aria-pressed="${skin==='pixel'}" style="width:auto;padding:0 12px">Pixelated</button><button data-skin="classic" aria-pressed="${skin==='classic'}" style="width:auto;padding:0 12px">Classic</button><button data-skin="uno" aria-pressed="${skin==='uno'}" style="width:auto;padding:0 12px">Party</button><button data-skin="neon" aria-pressed="${skin==='neon'}" style="width:auto;padding:0 12px">Neon</button><button data-skin="sketch" aria-pressed="${skin==='sketch'}" style="width:auto;padding:0 12px">Sketch</button></div></div>
   ${skin==='uno'?'':`<div class="row" style="justify-content:space-between"><span>High contrast cards</span><div class="seg" role="group" aria-label="High contrast cards"><button data-hc="0" aria-pressed="${!hc}" style="width:auto;padding:0 12px">Off</button><button data-hc="1" aria-pressed="${hc}" style="width:auto;padding:0 12px">On</button></div></div>`}
-  <div class="row" style="justify-content:space-between"><span>Card sounds</span><div class="seg" role="group" aria-label="Card sounds"><button data-sfx="0" aria-pressed="${!sfxOn}" style="width:auto;padding:0 12px">Off</button><button data-sfx="1" aria-pressed="${sfxOn}" style="width:auto;padding:0 12px">On</button></div></div>
+  <div class="row" style="justify-content:space-between"><span>Sounds</span><div class="seg" role="group" aria-label="Card sounds"><button data-sfx="0" aria-pressed="${!sfxOn}" style="width:auto;padding:0 12px">Off</button><button data-sfx="1" aria-pressed="${sfxOn}" style="width:auto;padding:0 12px">On</button></div></div>
   <div class="row" style="justify-content:center;gap:6px">${['S-A','H-K','C-7','D-10'].map(c=>cardHTML(c,{cls:'small'})).join('')}</div>`;
 }
 function wireSettings(root){
