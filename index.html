@@ -16,7 +16,7 @@
   --red:#fe5f55; --red-lo:#a8322b; --blue:#009dff; --blue-lo:#00609c; --orange:#fda200; --orange-lo:#a86b00; --green:#4bc292; --gold:#f5c34b;
   --card:#f3efe4; --card-edge:#c9c0ad; --card-red:#e5484d; --card-dark:#33395c;
   --px:"BalatroPx","Pixelify Sans","Courier New",ui-monospace,monospace;
-  --cw:clamp(62px,18.5vw,108px); --ch:calc(var(--cw)*1.4);
+  --ch:calc(var(--cw)*1.4);
   color-scheme:dark;
 }
 html,body,#app{height:100%}
@@ -119,7 +119,7 @@ html .deck .card{position:absolute;left:0;top:0}
 .mythrow .card:first-child{margin-left:0}
 
 .status{text-align:center;font-weight:700;font-size:clamp(18px,4.8vw,23px);letter-spacing:.03em;min-height:1.3em;text-shadow:2px 2px 0 var(--panel-lo)}
-.status small{display:block;font-weight:500;font-size:13px;color:var(--ink-dim);letter-spacing:0;margin-top:2px}
+.status small{display:block;font-weight:500;font-size:13px;color:var(--ink-dim);letter-spacing:0;margin-top:2px;min-height:1.3em;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .hand{display:flex;justify-content:center;align-items:flex-end;min-height:calc(var(--ch) + 24px);padding-top:22px}
 .hand .card{margin-left:calc(var(--cw)*var(--ov,-.16));transition:transform .15s ease;cursor:pointer;animation:sway 3.2s ease-in-out infinite;animation-delay:calc(var(--t0,0s) + var(--i,0)*-.45s)}
 @keyframes sway{0%,100%{translate:0 0}50%{translate:0 -4px}}
@@ -537,6 +537,9 @@ table.hist{border-collapse:collapse;width:100%;font-size:14px;font-variant-numer
 .hist td.w b{color:var(--gold)}
 .hist td.o b{color:var(--red)}
 .hist td.na{color:var(--ink-dim)}
+.hist.stats th:first-child{color:var(--ink);font-weight:700;max-width:110px;overflow:hidden;text-overflow:ellipsis}
+.hist.stats thead th{white-space:normal;line-height:1.15;vertical-align:bottom;font-size:12px;max-width:70px}
+h4.sec{margin:4px 0 -4px;font-size:15px;font-weight:700;color:var(--ink-dim);text-transform:uppercase;letter-spacing:.06em}
 .hist tr:last-child td,.hist tr:last-child th{border-bottom:0}
 .ui-felt .histwrap,.ui-felt .hist thead th{background:#082d2a}
 .skin-classic .histwrap,.skin-classic .hist thead th{background:#1d110a}
@@ -564,18 +567,13 @@ table.hist{border-collapse:collapse;width:100%;font-size:14px;font-variant-numer
 .toast{position:fixed;left:50%;bottom:calc(18px + env(safe-area-inset-bottom,0px));transform:translateX(-50%);background:var(--panel-lo);border:3px solid var(--line);color:var(--ink);padding:9px 14px;border-radius:8px;font-size:15px;z-index:40;max-width:min(90vw,420px);text-align:center;box-shadow:0 5px 0 rgba(0,0,0,.4)}
 .scoretable{display:flex;flex-direction:column;gap:6px}
 @media (prefers-reduced-motion:reduce){*{animation:none!important;transition:none!important}}
-@media (max-height:700px){:root{--cw:clamp(56px,16vw,92px)}}
-/* computer screens: size cards by height, keep rows compact and centred */
+/* card size: as big as the window allows; fitCards() shrinks --cwfit until the whole table fits */
+:root{--cwmax:clamp(56px,18.5vw,108px);--cw:var(--cwfit,var(--cwmax))}
+.opp .cnt{display:none;font-size:12px;color:var(--ink-dim)}
+/* wide windows */
 @media (min-width:760px){
-  :root{--cw:clamp(90px,15vh,170px)}
-  .screen{max-width:1100px;padding-block:16px;gap:14px}
-  .top{font-size:16px} .top .pill,.top .icon{padding:6px 14px}
-  .opp{padding:10px 8px;gap:6px} .opp .nm{font-size:16px} .opp .sc{font-size:14px} .opp .av{width:36px;height:36px;font-size:18px}
-  .minifan{height:32px} .minifan i{width:20px;height:29px;margin-left:-11px}
-  .feed{font-size:16px} .stackwrap .cap{font-size:14px}
-  .status small{font-size:16px}
-  .total{min-width:70px;padding:5px 12px} .total b{font-size:28px} .total span{font-size:12px}
-  .dock .btn{font-size:22px;padding:11px 20px} .balls{font-size:22px;padding:11px 20px}
+  :root{--cwmax:clamp(80px,15vh,170px)}
+  .screen{max-width:1100px}
   .home .panel{gap:14px} .tag{font-size:17px}
   .home{display:grid;grid-template-columns:repeat(2,minmax(0,380px));justify-content:center;align-content:center;gap:14px 18px}
   .home.lobby{align-content:start;align-items:start}
@@ -584,14 +582,42 @@ table.hist{border-collapse:collapse;width:100%;font-size:14px;font-variant-numer
   .home .logo,.home .tag{grid-column:1/-1;justify-self:center}
   .home .logo{margin-top:0}
   .home details.rules{grid-column:1/-1;justify-self:center;max-width:776px}
-  .opps{grid-template-columns:repeat(auto-fit,minmax(120px,170px));justify-content:center;gap:12px}
-  .table{gap:clamp(60px,9vw,140px)}
+  .opps{grid-template-columns:repeat(auto-fit,minmax(90px,170px));justify-content:center}
+  .table{gap:clamp(40px,9vw,140px)}
   .mythrow{right:max(0px,calc(50% - 420px))}
-  .status{font-size:26px}
   .dock{width:100%;max-width:720px;margin:0 auto}
+}
+/* wide and tall (maximised or fullscreen): roomier controls */
+@media (min-width:760px) and (min-height:820px){
+  .screen{padding-block:16px;gap:14px}
+  .top{font-size:16px} .top .pill,.top .icon{padding:6px 14px}
+  .opps{gap:12px}
+  .opp{padding:10px 8px;gap:6px} .opp .nm{font-size:16px} .opp .sc{font-size:14px} .opp .av{width:36px;height:36px;font-size:18px}
+  .minifan{height:32px} .minifan i{width:20px;height:29px;margin-left:-11px}
+  .feed{font-size:16px} .stackwrap .cap{font-size:14px}
+  .status{font-size:26px} .status small{font-size:16px}
+  .total{min-width:70px;padding:5px 12px} .total b{font-size:28px} .total span{font-size:12px}
+  .dock .btn{font-size:22px;padding:11px 20px} .balls{font-size:22px;padding:11px 20px}
   .hand{padding-top:28px}
 }
-@media (min-width:760px) and (max-height:720px){:root{--cw:clamp(70px,12vh,120px)}}
+/* compact / tiny: switched on by fitCards() when the window is short or the table is crowded */
+.compact .screen{gap:6px}
+html.compact:not(.skin-classic) .screen{padding-block:6px}
+.compact .opps{gap:4px}
+.compact .opp{flex-direction:row;flex-wrap:wrap;justify-content:center;align-items:center;padding:3px 8px;gap:2px 6px;box-shadow:none}
+.compact .opp .av{width:20px;height:20px;font-size:11px}
+.compact .opp .nm{font-size:13px} .compact .opp .sc{font-size:12px}
+.compact .opp .minifan{display:none} .compact .opp .cnt{display:inline}
+.compact .stackwrap{gap:4px}
+.compact .status{font-size:17px} .compact .status small{margin-top:0;font-size:12px}
+.compact .hand{padding-top:14px;min-height:calc(var(--ch) + 14px)}
+.compact .total{padding:1px 8px;min-width:46px} .compact .total b{font-size:18px} .compact .total span{font-size:10px}
+.compact .dock .btn,.compact .balls{padding:6px 12px;font-size:16px}
+.compact .top{font-size:13px} .compact .top .pill,.compact .top .icon{padding:3px 9px}
+.tiny .feed,.tiny .status small,.tiny .opp .rank,.tiny .total span{display:none}
+.tiny .stackwrap{flex-direction:row;align-items:center;gap:6px}
+.tiny .stackwrap .cap{font-size:10px;padding:0 6px}
+.tiny .hand{padding-top:8px;min-height:calc(var(--ch) + 8px)}
 </style>
 
 </head><body style="margin:0">
@@ -652,15 +678,17 @@ function startRound(s){
 function canCall(s,id){ return s.phase==='play' && roundLive(s) && s.step==='throw' && s.players[s.turn].id===id && handVal(s.hands[id])<=RULES.callMax && (s.turnsTaken[id]||0)>0; }
 const roundLive = s => !s.startAt || Date.now() >= s.startAt;
 const LOBBY_AFTER_MS=60000;
-function resetToLobby(s){ s.phase='lobby'; s.round=0; s.result=null; s.players.forEach(p=>{p.score=0;p.out=false;}); s.hands={}; s.log=[]; s.history=[]; s.overAt=null; }
+function resetToLobby(s){ s.phase='lobby'; s.round=0; s.result=null; s.players.forEach(p=>{p.score=0;p.out=false;}); s.hands={}; s.log=[]; s.history=[]; s.stats={}; s.overAt=null; }
 function isTurn(s,id){ return s.phase==='play' && roundLive(s) && s.players[s.turn] && s.players[s.turn].id===id; }
 
+function bump(s,id,k,n=1){ s.stats=s.stats||{}; const t=s.stats[id]=s.stats[id]||{}; t[k]=(t[k]||0)+n; }
 function doThrow(s,id,cards){
   if(!isTurn(s,id)||s.step!=='throw') return 'It is not your throw.';
   const h=s.hands[id];
   if(!cards.length||!cards.every(c=>h.includes(c))) return 'Pick cards from your hand.';
   if(!validThrow(cards)) return 'Throw one card, or two or more of the same rank.';
   s.hands[id]=h.filter(c=>!cards.includes(c));
+  bump(s,id,'played',cards.length);
   s.thrown=cards; s.step='draw';
 }
 function doDraw(s,id,src,card){
@@ -712,6 +740,7 @@ function doBalls(s,id){
   else { const al=s.players.map((p,i)=>i).filter(i=>!s.players[i].out); s.dealer=al[Math.floor(Math.random()*al.length)]; coin=true; }
   s.result={id:Math.random().toString(36).slice(2), round:s.round, caller:id, cv, falseB, winner, coin, beaters, rows};
   addLog(s, falseB?`${pname(s,id)} called false Balls`:`${pname(s,id)} called Balls and won the round`);
+  bump(s,id,falseB?'falseB':'balls'); if(winner!==null) bump(s,winner,'wins');
   s.history=[...(s.history||[]),{round:s.round,caller:id,falseB,winner,rows:Object.fromEntries(rows.map(x=>[x.id,{gain:x.gain,after:x.after,out:x.notes.includes('Eliminated')}]))}];
   s.phase = aliveList(s).length<=1 ? 'over' : 'reveal';
   if(s.phase==='over') s.overAt=Date.now();
@@ -912,7 +941,8 @@ const SFX={
     noise(a,t,{freq:2600,freqEnd:1100,q:.7,gain:.5,attack:.006,decay:.085}); tone(a,t+.02,{f:130,fEnd:55,gain:.2,dur:.07}); },
   /* a card flicked off the deck or the pile */
   grab(delayMs=0){ const a=audio(); if(!a||!sfxOn||a.state!=='running') return; const t=a.currentTime+delayMs/1000;
-    noise(a,t,{freq:1100,freqEnd:3000,q:.8,gain:.38,attack:.01,decay:.08}); },
+    noise(a,t,{freq:3800,freqEnd:1700,q:.5,gain:.2,attack:.035,decay:.06});
+    noise(a,t+.085,{freq:4300,q:2.2,gain:.34,attack:.001,decay:.02}); tone(a,t+.085,{f:820,fEnd:420,type:'triangle',gain:.09,dur:.03}); },
   /* your turn: two soft rising chimes */
   turn(){ const a=audio(); if(!a||!sfxOn||a.state!=='running') return; const t=a.currentTime+.02;
     tone(a,t,{f:659,type:'triangle',gain:.12,dur:.16}); tone(a,t+.12,{f:988,type:'triangle',gain:.12,dur:.28}); tone(a,t+.12,{f:1976,type:'sine',gain:.03,dur:.2}); },
@@ -1189,12 +1219,14 @@ function render(){
   try{ renderInner(); }finally{ const now=document.querySelector('#app .screen'); if(now&&prevTop&&now.className===prevKind) now.scrollTop=prevTop; }
 }
 function renderInner(){
+  if(!mode||!S||S.phase==='lobby') clearFit();
   layer.innerHTML='';
   useRules(S);
   if(!mode){ renderHome(); if(showRules) renderRulesSheet(); return; }
   if(mode==='online' && !S) { app.innerHTML=`<div class="screen home"><div class="logo">BALLS!</div><p class="tag">Sitting down at table ${esc(roomCode)}…</p><button class="btn ghost" id="b-leave">Back</button></div>`; $('#b-leave').onclick=()=>leaveTable(); return; }
   if(S.phase==='lobby') return renderLobby();
   renderGame();
+  fitCards();
   syncCountdown();
   if(S.phase==='reveal'||S.phase==='over') renderResult();
   else if(showScores) renderScores();
@@ -1331,6 +1363,7 @@ function renderGame(){
         <span class="av" style="background:${avColor(p.id)}">${esc((p.name||'?')[0].toUpperCase())}</span>
         <span class="nm">${esc(p.name)}</span>
         <div class="minifan" aria-label="${n} cards">${p.out?'':'<i></i>'.repeat(Math.min(n,5))+(n>5?`<em class="mfn">+${n-5}</em>`:'')}</div>
+        <span class="cnt">${p.out?'':n+' cards'}</span>
         <span class="sc">${p.out?'out':p.score+' pts'}</span>${rankBadge(S,p.id)}
       </div>`;}).join('')}</div>
     <div class="feed" aria-live="polite">${(()=>{ const l=(S.log||[]).slice(-1)[0]||''; const i=l.indexOf(' '); return i>0?'<b>'+esc(l.slice(0,i))+'</b>'+esc(l.slice(i)):esc(l); })()}</div>
@@ -1487,6 +1520,10 @@ function infoHTML(){
   <h4>This table</h4>
   <dl><dt>Call Balls at</dt><dd>${R.callMax} or less</dd><dt>False Balls</dt><dd>+${R.falsePenalty}</dd><dt>Out at</dt><dd>${R.elimAt}</dd>${Object.entries(R.resets).map(([a,b])=>`<dt>Exactly ${a}</dt><dd>back to ${b}</dd>`).join('')}<dt>Cards each</dt><dd>${R.startHand}</dd><dt>Decks</dt><dd>${R.decks}${R.jokers?` · ${R.jokers} jokers each`:' · no jokers'}</dd>${R.turnTimer?`<dt>Turn timer</dt><dd>${R.turnTimer}s</dd>`:''}</dl>`;
 }
+function statsHTML(){
+  const st=S.stats||{}, g=(id,k)=>(st[id]&&st[id][k])||0;
+  return `<div class="histwrap"><table class="hist stats"><thead><tr><th>Player</th><th>Rounds won</th><th>Cards played</th><th>Balls</th><th>False Balls</th></tr></thead><tbody>${S.players.map(p=>`<tr><th>${esc(p.name)}${p.id===me?' (you)':''}</th><td><b>${g(p.id,'wins')}</b></td><td>${g(p.id,'played')}</td><td>${g(p.id,'balls')}</td><td>${g(p.id,'falseB')}</td></tr>`).join('')}</tbody></table></div>`;
+}
 function historyHTML(){
   const H=S.history||[]; if(!H.length) return '';
   const ps=S.players;
@@ -1570,6 +1607,26 @@ setInterval(()=>{
   if(mode==='local'){ overDone=S.result.id; mode=null; S=null; clearTimeout(botTimer); botKey=null; render(); return; }
   if(S.host===me||left<=-6){ overDone=S.result.id; act(resetToLobby); }
 },500);
+/* shrink the cards until the whole table fits the window (any size, any number of players) */
+let fitKey=null;
+function clearFit(){ const root=document.documentElement; root.style.removeProperty('--cwfit'); root.classList.remove('compact','tiny'); fitKey=null; }
+function fitCards(){
+  const root=document.documentElement, scr=document.querySelector('#app .screen'), table=scr&&scr.querySelector('.table'), dock=scr&&scr.querySelector('.dock');
+  if(!table||!dock){ clearFit(); return; }
+  const key=[innerWidth,innerHeight,S?S.players.length:0,skin,hc].join('|');
+  if(key!==fitKey){ clearFit(); fitKey=key; root.classList.toggle('compact',innerHeight<=640); root.classList.toggle('tiny',innerHeight<=440); }
+  const fits=()=>{ const padB=parseFloat(getComputedStyle(scr).paddingBottom)||0;
+    const need=Math.max(0,...[...table.querySelectorAll('.stackwrap')].map(e=>e.offsetHeight));
+    return need<=table.clientHeight+1 && dock.getBoundingClientRect().bottom<=scr.getBoundingClientRect().bottom-padB+1; };
+  const shrink=()=>{ const probe=table.querySelector('#b-deck .card'); let cw=(probe&&probe.getBoundingClientRect().width)||80;
+    for(let i=0;i<70&&cw>34&&!fits();i++){ cw=Math.max(34,cw-3); root.style.setProperty('--cwfit',cw+'px'); } return cw; };
+  let cw=shrink();
+  if(cw<66&&!root.classList.contains('compact')){ root.classList.add('compact'); root.style.removeProperty('--cwfit'); cw=shrink(); }
+  if(cw<50&&!root.classList.contains('tiny')){ root.classList.add('tiny'); root.style.removeProperty('--cwfit'); cw=shrink(); }
+}
+let fitT=null;
+addEventListener('resize',()=>{ clearTimeout(fitT); fitT=setTimeout(()=>{ if(S&&mode&&S.phase!=='lobby') fitCards(); },80); });
+try{ document.fonts.ready.then(()=>{ if(S&&mode&&S.phase!=='lobby'){ fitKey=null; fitCards(); } }); }catch(e){}
 function settingsHTML(){
   return `<div class="row" style="justify-content:space-between;align-items:flex-start"><span style="padding-top:8px">Theme</span><div class="seg wrap" role="group" aria-label="Theme"><button data-skin="pixel" aria-pressed="${skin==='pixel'}" style="width:auto;padding:0 12px">Pixelated</button><button data-skin="classic" aria-pressed="${skin==='classic'}" style="width:auto;padding:0 12px">Classic</button><button data-skin="uno" aria-pressed="${skin==='uno'}" style="width:auto;padding:0 12px">Party</button><button data-skin="neon" aria-pressed="${skin==='neon'}" style="width:auto;padding:0 12px">Neon</button><button data-skin="sketch" aria-pressed="${skin==='sketch'}" style="width:auto;padding:0 12px">Sketch</button></div></div>
   ${skin==='uno'?'':`<div class="row" style="justify-content:space-between"><span>High contrast cards</span><div class="seg" role="group" aria-label="High contrast cards"><button data-hc="0" aria-pressed="${!hc}" style="width:auto;padding:0 12px">Off</button><button data-hc="1" aria-pressed="${hc}" style="width:auto;padding:0 12px">On</button></div></div>`}
@@ -1619,6 +1676,7 @@ function renderScores(){
   layer.innerHTML=`<div class="overlay" id="ov"><div class="sheet" role="dialog" aria-label="Scores">
     <h3>Scores</h3><p class="sub">${mode==='online'?`Table ${esc(roomCode)}. `:''}Out at ${RULES.elimAt}.${Object.entries(RULES.resets).map(([a,b])=>` Exactly ${a} resets to ${b}.`).join('')}</p>
     <div class="scoretable">${scoreRows()}</div>
+    <h4 class="sec">This match so far</h4>${statsHTML()}
     ${(S.log||[]).length?`<p class="sub" style="font-size:12px">${(S.log||[]).map(esc).join('<br>')}</p>`:''}
     <button class="btn" id="b-close">Back to the table</button></div></div>`;
   $('#b-close').onclick=()=>{ showScores=false; render(); };
@@ -1641,16 +1699,16 @@ function renderResult(){
   layer.innerHTML=`<div class="overlay"><div class="sheet" role="dialog" aria-label="Round result">
     ${head}
     ${over?`<p class="sub">Final round: ${esc(caller)} called ${r.falseB?'false ':''}Balls with ${r.cv}.</p>`:''}
-    ${over?historyHTML():''}
+    ${over?`<h4 class="sec">Match summary</h4>${statsHTML()}<h4 class="sec">Round by round</h4>${historyHTML()}`:''}
     <div class="res" ${over?'hidden':''}>${r.rows.map(x=>`<div class="rrow ${x.id===r.winner?'win':''}">
       <span class="who">${rankBadge(S,x.id)} ${esc(pname(S,x.id))}${x.id===r.winner?'<span class="tagn">round win</span>':''}${x.notes.map(n=>`<span class="tagn ${n==='Eliminated'?'bad':''}">${esc(n)}</span>`).join('')}</span>
       <span class="gain">${x.gain>=0?'+':''}${x.gain}</span>
       <span class="tot">${x.after}</span>
       <div class="cardsline">${x.hand.map((c,i)=>cardHTML(c,{cls:'small'})).join('')}<span class="hv">${x.v} in hand</span></div>
     </div>`).join('')}</div>
-    ${canNext
+    ${(canNext||over)
       ? `<button class="btn" id="b-next">${over?(mode==='local'?'New game':'Back to lobby'):'Deal next round'}</button>`
-      : `<p class="note">Waiting for ${esc(pname(S,S.host))} to ${over?'reset the table':'deal'}…</p>`}
+      : `<p class="note">Waiting for ${esc(pname(S,S.host))} to deal…</p>`}
     ${over?`<p class="note" style="text-align:center">Back to the ${mode==='online'?'lobby':'menu'} in <b id="over-left">${Math.max(0,Math.ceil(((S.overAt||Date.now())+LOBBY_AFTER_MS-Date.now())/1000))}</b>s</p>`:''}
     ${over?`<button class="btn ghost" id="b-home">${mode==='online'?'Leave table':'Main menu'}</button>`:''}
   </div></div>`;
