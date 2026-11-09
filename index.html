@@ -122,7 +122,7 @@ html .deck .card{position:absolute;left:0;top:0}
 .status small{display:block;font-weight:500;font-size:13px;color:var(--ink-dim);letter-spacing:0;margin-top:2px}
 .hand{display:flex;justify-content:center;align-items:flex-end;min-height:calc(var(--ch) + 24px);padding-top:22px}
 .hand .card{margin-left:calc(var(--cw)*var(--ov,-.16));transition:transform .15s ease;cursor:pointer;animation:sway 3.2s ease-in-out infinite;animation-delay:calc(var(--t0,0s) + var(--i,0)*-.45s)}
-@keyframes sway{0%,100%{translate:0 0;rotate:-1.2deg}50%{translate:0 -3px;rotate:1.2deg}}
+@keyframes sway{0%,100%{translate:0 0}50%{translate:0 -4px}}
 .hand .card:first-child{margin-left:0}
 .hand .card.sel{transform:translateY(-22px)}
 :root{--turn:#f5c34b}
@@ -130,20 +130,22 @@ html .deck .card{position:absolute;left:0;top:0}
 .skin-classic{--turn:#f0c56a}
 .skin-neon{--turn:#00e5ff}
 .skin-sketch{--turn:#f2b33d}
+.hand .card::before,.availrow .card::before,#b-deck .card:last-child::before{content:"";position:absolute;inset:0;border-radius:inherit;background:#fff;opacity:0;transition:opacity .12s;pointer-events:none;z-index:5}
 @media (hover:hover){
-  .hand:not(.locked) .card:hover{transform:translateY(-12px);filter:brightness(1.08) saturate(1.05);box-shadow:0 0 0 2px var(--turn),0 10px 22px rgba(0,0,0,.35),0 0 18px color-mix(in srgb,var(--turn) 55%,transparent)}
+  .hand:not(.locked) .card:hover{transform:translateY(-12px);box-shadow:0 0 0 2px var(--turn),0 10px 22px rgba(0,0,0,.35),0 0 18px color-mix(in srgb,var(--turn) 55%,transparent)}
+  .hand:not(.locked) .card:hover::before{opacity:.14}
   .hand:not(.locked) .card.sel:hover{transform:translateY(-26px)}
-  .hand.locked .card:hover{transform:translateY(-6px);filter:brightness(1.05)}
-  .availrow .card.pick:hover,#b-deck:not([disabled]):hover .card:last-child{transform:translateY(-8px) rotate(var(--rot,0deg));filter:brightness(1.1)}
+  .hand.locked .card:hover{transform:translateY(-6px)}
+  .hand.locked .card:hover::before{opacity:.08}
+  .availrow .card.pick:hover,#b-deck:not([disabled]):hover .card:last-child{transform:translateY(-8px) rotate(var(--rot,0deg))}
+  .availrow .card.pick:hover::before,#b-deck:not([disabled]):hover .card:last-child::before{opacity:.14}
 }
-.turnglow{position:fixed;inset:0;z-index:4;pointer-events:none;opacity:0;transition:opacity .35s ease;will-change:opacity;
-  --tg:color-mix(in srgb,var(--turn) 45%,transparent);
-  border:3px solid var(--turn);
-  background:linear-gradient(90deg,var(--tg),transparent 30px),linear-gradient(270deg,var(--tg),transparent 30px),linear-gradient(180deg,var(--tg),transparent 30px),linear-gradient(0deg,var(--tg),transparent 30px)}
+.turnglow{position:fixed;inset:0;z-index:4;pointer-events:none;opacity:0;transition:opacity .3s ease;border:3px solid var(--turn);
+  box-shadow:inset 0 0 0 1px color-mix(in srgb,var(--turn) 50%,transparent),inset 0 0 12px color-mix(in srgb,var(--turn) 40%,transparent)}
 .turnglow.on{opacity:1;animation:turnglow 2s ease-in-out infinite}
-@keyframes turnglow{0%,100%{opacity:.7}50%{opacity:1}}
+@keyframes turnglow{0%,100%{opacity:.65}50%{opacity:1}}
 .skin-classic .turnglow{inset:max(10px,1.4vmin)}
-.skin-sketch .turnglow{border-width:4px;--tg:color-mix(in srgb,var(--turn) 30%,transparent)}
+.skin-sketch .turnglow{border-width:4px}
 @media (prefers-reduced-motion:reduce){.turnglow.on{animation:none}}
 .hand .card.sel::after{content:"";position:absolute;inset:-4px;border:3px solid var(--gold);border-radius:calc(var(--cw)*.1 + 3px);pointer-events:none}
 .hand.locked .card{cursor:default}
@@ -447,6 +449,22 @@ html .deck .card{position:absolute;left:0;top:0}
 .hc.skin-classic .card .idx i{font-size:calc(var(--cw)*.2)}
 .hc .card.small .tl{font-size:13px}
 
+/* ---------- jokers: one layout in every theme (same framed panel as the court cards) ---------- */
+.card.joker.joker .idx{font-size:calc(var(--cw)*.1);line-height:1.04;letter-spacing:0;gap:0}
+.card.joker.joker .idx b{font-weight:inherit;display:block;text-align:center}
+.card.joker.joker .idx .js{display:none}
+.card.joker.joker .art{position:absolute;inset:12% 19%;border-radius:4px;overflow:hidden;background:none;box-shadow:0 0 0 1.5px #2b2d42}
+.card.joker.joker .art svg,.card.joker.joker .art img{width:100%;height:100%;display:block}
+.skin-pixel .card.joker.joker .art{inset:13% 19%;box-shadow:0 0 0 2px #2b2d42}
+.skin-pixel .card.joker.joker .art img{image-rendering:pixelated;object-fit:fill}
+.skin-neon .card.joker.joker{--c:#ff6be4}
+.skin-neon .card.joker.joker .art{box-shadow:0 0 0 1.5px #ff2bd6,0 0 10px rgba(255,43,214,.6)}
+.skin-sketch .card.joker.joker .art{box-shadow:none;border:2px dashed #22305c;border-radius:6px 3px 7px 4px}
+.card.small.joker.joker .art{display:none}
+.card.small.joker.joker .idx .jw{display:none}
+.card.small.joker.joker .idx .js{display:block;font-size:14px;line-height:1}
+.skin-uno .card.joker .big em{font-size:.4em;letter-spacing:.02em}
+
 /* ---------- motion: flying cards and action bubbles ---------- */
 .flyer{position:fixed;left:0;top:0;z-index:15;pointer-events:none;will-change:transform}
 .flyer .card{margin:0!important;animation:none!important;transform:none!important}
@@ -727,30 +745,37 @@ function sprite(rows,map,cls=''){
 }
 const SUITCACHE={};
 function suitSVG(s,cls=''){ const k=s+cls; return SUITCACHE[k]||(SUITCACHE[k]=sprite(SPR[s],{'#':'var(--c)','h':'rgba(255,255,255,.55)'},cls)); }
-function jokerArt(n,banner=true){
-  /* smooth, outlined jester portrait in the spirit of a roguelike joker card (original design) */
-  const P = n%2 ? {bg1:'#3a6ea5',bg2:'#25476e',l:'#e5484d',r:'#2fb36d',m:'#f5c34b'} : {bg1:'#b33a46',bg2:'#7a1f2a',l:'#7d5bd6',r:'#f58a1f',m:'#f5c34b'};
-  const o='#2b2d42';
-  return `<svg viewBox="0 0 100 120" preserveAspectRatio="xMidYMid slice" aria-hidden="true">
-    <rect width="100" height="120" fill="${P.bg2}"/>
-    <g fill="${P.bg1}">${[0,1,2,3,4,5].map(i=>`<path d="M50 62 L${-40+i*40} -10 L${-20+i*40} -10Z"/>`).join('')}</g>
-    <circle cx="50" cy="62" r="34" fill="rgba(255,255,255,.08)"/>
+const JOKER_PAL={
+  def:[{bg1:'#3a6ea5',bg2:'#25476e',l:'#e5484d',r:'#2fb36d',m:'#f5c34b',o:'#2b2d42',face:'#fdf6e8'},{bg1:'#b33a46',bg2:'#7a1f2a',l:'#7d5bd6',r:'#f58a1f',m:'#f5c34b',o:'#2b2d42',face:'#fdf6e8'}],
+  neon:[{bg1:'#2a1066',bg2:'#12082e',l:'#ff2bd6',r:'#00e5ff',m:'#ffe600',o:'#07031a',face:'#f4f0ff'},{bg1:'#0b3f5c',bg2:'#081a33',l:'#00e5ff',r:'#ff2bd6',m:'#ffe600',o:'#07031a',face:'#f4f0ff'}],
+  sketch:[{bg1:'#fdecb5',bg2:'#fffdf6',l:'#e0453a',r:'#2f6fd6',m:'#f6c453',o:'#22305c',face:'#ffffff'},{bg1:'#cfe0ff',bg2:'#fffdf6',l:'#2f6fd6',r:'#e0453a',m:'#f6c453',o:'#22305c',face:'#ffffff'}]
+};
+/* original jester: a tall portrait that fills the same framed panel the court cards use */
+function jokerArt(n,sk=skin){
+  const P=(JOKER_PAL[sk]||JOKER_PAL.def)[n%2?0:1], o=P.o;
+  const pt=(deg)=>{ const r=deg*Math.PI/180; return (50+150*Math.cos(r)).toFixed(1)+' '+(60+150*Math.sin(r)).toFixed(1); };
+  const rays=[...Array(12)].map((_,i)=>`<path d="M50 60 L${pt(i*30-8)} L${pt(i*30+8)}Z"/>`).join('');
+  return `<svg viewBox="0 -22 100 164" preserveAspectRatio="xMidYMid slice" aria-hidden="true">
+    <rect x="0" y="-22" width="100" height="164" fill="${P.bg2}"/>
+    <g fill="${P.bg1}">${rays}</g>
     <g stroke="${o}" stroke-width="2.6" stroke-linejoin="round" stroke-linecap="round">
+      <path d="M50 104 Q26 108 24 144 H50Z" fill="${P.l}"/>
+      <path d="M50 104 Q74 108 76 144 H50Z" fill="${P.r}"/>
       <path d="M50 46 C40 26 22 20 9 28 C21 31 29 40 33 54Z" fill="${P.l}"/>
       <path d="M50 46 C60 26 78 20 91 28 C79 31 71 40 67 54Z" fill="${P.r}"/>
       <path d="M36 54 C39 34 45 22 50 14 C55 22 61 34 64 54Z" fill="${P.m}"/>
       <circle cx="9" cy="28" r="5" fill="${P.m}"/><circle cx="91" cy="28" r="5" fill="${P.m}"/><circle cx="50" cy="13" r="5" fill="${P.l}"/>
-      <rect x="30" y="51" width="40" height="9" rx="4" fill="#fdf6e8"/>
-      <path d="M22 104 L30 92 L38 102 L46 90 L54 102 L62 90 L70 102 L78 92 L82 106 L18 106Z" fill="${P.m}"/>
-      <ellipse cx="50" cy="76" rx="18" ry="19" fill="#fdf6e8"/>
+      <rect x="30" y="51" width="40" height="9" rx="4" fill="${P.face}"/>
+      <path d="M20 106 L29 93 L38 103 L46 91 L54 103 L62 91 L71 103 L80 93 L84 108 L16 108Z" fill="${P.m}"/>
+      <ellipse cx="50" cy="76" rx="18" ry="19" fill="${P.face}"/>
       <path d="M40 80 Q50 93 60 80 Q50 86 40 80Z" fill="#a61e2d"/>
+      <circle cx="50" cy="122" r="3" fill="${P.m}"/><circle cx="50" cy="134" r="3" fill="${P.m}"/>
     </g>
     <circle cx="35.5" cy="55.5" r="1.8" fill="${P.l}"/><circle cx="50" cy="55.5" r="1.8" fill="${P.r}"/><circle cx="64.5" cy="55.5" r="1.8" fill="${P.l}"/>
     <ellipse cx="43" cy="72" rx="2.4" ry="3.2" fill="${o}"/><ellipse cx="57" cy="72" rx="2.4" ry="3.2" fill="${o}"/>
     <circle cx="43.8" cy="70.8" r=".9" fill="#fff"/><circle cx="57.8" cy="70.8" r=".9" fill="#fff"/>
     <path d="M43 77 l-2 4 l2 3 l2 -3Z" fill="${P.l}"/>
     <circle cx="37" cy="81" r="3.6" fill="#ff8f8f" opacity=".55"/><circle cx="63" cy="81" r="3.6" fill="#ff8f8f" opacity=".55"/>
-    ${banner?`<rect x="0" y="108" width="100" height="12" fill="${o}"/><text x="50" y="117.5" text-anchor="middle" font-family="Libre Baskerville, Georgia, serif" font-weight="700" font-size="8" letter-spacing="1.5" fill="#fff">JOKER</text>`:''}
   </svg>`;
 }
 const COURT={
@@ -759,12 +784,12 @@ const COURT={
   J:'<svg viewBox="0 0 100 70" aria-hidden="true"><path d="M18 60 Q20 30 50 28 Q80 30 82 60Z" fill="var(--c)"/><path d="M14 58 H86 V66 H14Z" fill="#d9a521"/><path d="M58 30 Q74 8 92 6 Q82 18 66 34Z" fill="#d9a521"/><path d="M62 30 Q74 14 88 10" stroke="var(--c)" stroke-width="1.5" fill="none"/></svg>'
 };
 /* pixel joker: the smooth jester rasterised onto a coarse grid, alpha snapped to hard edges */
-const PXJ={}, PXJ_W=36, PXJ_H=43;
+const PXJ={}, PXJ_W=34, PXJ_H=56;
 function pixelJoker(n){ return PXJ[n%2]||null; }
 function buildPixelJokers(){
   return Promise.all([1,2].map(n=>new Promise(res=>{
     try{
-      const svg=jokerArt(n,false).replace('<svg ','<svg xmlns="http://www.w3.org/2000/svg" width="100" height="120" ');
+      const svg=jokerArt(n,'def').replace('<svg ','<svg xmlns="http://www.w3.org/2000/svg" width="100" height="164" ');
       const img=new Image();
       img.onload=()=>{ try{
         const c=document.createElement('canvas'); c.width=PXJ_W; c.height=PXJ_H;
@@ -779,7 +804,7 @@ function buildPixelJokers(){
 function unoCard(c,cls,attrs){
   if(c==='back') return `<div class="card back ${cls}" ${attrs}><div class="face"><div class="oval"><div class="big">BALLS</div></div></div></div>`;
   const r=rank(c);
-  if(r==='X') return `<div class="card joker ${cls}" ${attrs}><div class="face"><span class="ci tl">★</span><div class="oval"><div class="big">★<em>25</em></div></div><span class="ci br">★</span></div></div>`;
+  if(r==='X') return `<div class="card joker ${cls}" ${attrs}><div class="face"><span class="ci tl">★</span><div class="oval"><div class="big">★<em>JOKER</em></div></div><span class="ci br">★</span></div></div>`;
   const s=suit(c);
   return `<div class="card su-${s} ${cls}" ${attrs}><div class="face"><span class="ci tl">${r}</span><div class="oval"><div class="big">${r}<em>${SYM[s]}</em></div></div><span class="ci br">${r}</span></div></div>`;
 }
@@ -789,10 +814,10 @@ function cardHTML(c,{cls='',attrs=''}={}){
   const r=rank(c), classic=['classic','neon','sketch'].includes(skin);
   if(r==='X'){
     const n=+c.slice(2);
-    const word='J<br>O<br>K<br>E<br>R';
+    const word='<b class="jw">J<br>O<br>K<br>E<br>R</b><b class="js">★</b>';
     if(classic) return `<div class="card joker ${cls}" ${attrs}><span class="idx tl">${word}</span><div class="art">${jokerArt(n)}</div><span class="idx br">${word}</span></div>`;
     const px=pixelJoker(n);
-    return `<div class="card joker ${cls}" ${attrs}><span class="idx tl">${word}</span><div class="art px">${px?`<img src="${px}" alt="">`:jokerArt(n,false)}</div><span class="idx br">${word}</span></div>`;
+    return `<div class="card joker ${cls}" ${attrs}><span class="idx tl">${word}</span><div class="art px">${px?`<img src="${px}" alt="">`:jokerArt(n,'def')}</div><span class="idx br">${word}</span></div>`;
   }
   const s=suit(c), col=(s==='H'||s==='D')?'red':'';
   if(classic){
