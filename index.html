@@ -1107,6 +1107,59 @@ function renderResult(){
   const hm=$('#b-home'); if(hm) hm.onclick=()=>{ if(mode==='online') leaveTable(); else { mode=null; S=null; render(); } };
 }
 
+/* ================= FIREBASE (public website) ================= */
+/* Used only when the page runs outside claude.ai. The game state is stored as one JSON string per table,
+   so empty lists and objects survive the round trip. */
+const FIREBASE_CONFIG = {
+  apiKey: "AIzaSyDzJPG_9kKWsfDQ6uALukV7s6W_sIW_z_M",
+  authDomain: "balls-game-2c15d.firebaseapp.com",
+  databaseURL: "https://balls-game-2c15d-default-rtdb.europe-west1.firebasedatabase.app",
+  projectId: "balls-game-2c15d",
+  storageBucket: "balls-game-2c15d.firebasestorage.app",
+  messagingSenderId: "503049693009",
+  appId: "1:503049693009:web:dd3c3a53e0cf302e0c5570"
+};
+const FB_VER='10.12.2';
+function loadScript(srcs){
+  return new Promise((res,rej)=>{
+    const tryAt=i=>{ if(i>=srcs.length) return rej(new Error('load failed'));
+      const el=document.createElement('script'); el.src=srcs[i]; el.async=true;
+      el.onload=()=>res(); el.onerror=()=>{ el.remove(); tryAt(i+1); }; document.head.appendChild(el); };
+    tryAt(0);
+  });
+}
+async function firebaseDB(){
+  try{
+    const lib=n=>[`https://www.gstatic.com/firebasejs/${FB_VER}/${n}`,`https://cdn.jsdelivr.net/npm/firebase@${FB_VER}/${n}`];
+    await loadScript(lib('firebase-app-compat.js'));
+    await loadScript(lib('firebase-database-compat.js'));
+    const app = firebase.apps.length ? firebase.app() : firebase.initializeApp(FIREBASE_CONFIG);
+    const rtdb = app.database();
+    const wrapSnap = snap => { const v=snap.val(); let d=null; try{ d=v&&v.json?JSON.parse(v.json):null; }catch(e){}
+      return { exists: !!d, data: ()=>d, metadata:{fromCache:false, hasPendingWrites:false} }; };
+    return {
+      doc(path){
+        const r=rtdb.ref(path);
+        return {
+          path,
+          set: data => r.set({json:JSON.stringify(data), v:data.v||0, at:Date.now()}),
+          get: async () => wrapSnap(await r.get()),
+          onSnapshot(next,err){
+            const cb=snap=>next(wrapSnap(snap));
+            r.on('value',cb,e=>err&&err({code:'unavailable',message:String(e&&e.message||e)}));
+            return ()=>r.off('value',cb);
+          },
+          async acquire({holder,ttlMs=4000}){
+            const lock=rtdb.ref(path+'_lock'); const now=Date.now();
+            const t=await lock.transaction(cur=>(!cur||cur.exp<now||cur.holder===holder)?{holder,exp:now+ttlMs}:undefined);
+            return {acquired:!!t.committed};
+          }
+        };
+      }
+    };
+  }catch(e){ return null; }
+}
+
 /* ================= BOOT ================= */
 render();
 buildPixelJokers().then(()=>{ if(mode) render(); else renderHome(); });
@@ -1115,6 +1168,7 @@ buildPixelJokers().then(()=>{ if(mode) render(); else renderHome(); });
   let user=null;
   try{ [db,user]=await Promise.all([use?use('db'):null, use?use('user'):null]); }catch(e){ db=null; }
   try{ const uid=user?await user.id():null; onlineId=uid||localId; }catch(e){ onlineId=localId; }
+  if(!db && !use) db = await firebaseDB();
   dbChecked=true;
   if(!mode) render();
 })();
