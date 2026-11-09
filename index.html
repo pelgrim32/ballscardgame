@@ -523,7 +523,7 @@ html .deck .card{position:absolute;left:0;top:0}
 const SUITS = ['H','D','C','S'], RANKS = ['A','2','3','4','5','6','7','8','9','10','J','Q','K'];
 const SYM = {H:'♥',D:'♦',C:'♣',S:'♠'};
 const DEFAULT_RULES = { startHand:5, decks:1, jokers:4, maxPlayers:6, callMax:5, falsePenalty:25, elimAt:101, jokerVal:25, jackVal:-1,
-  resetA:{on:true,from:100,to:70}, resetB:{on:true,from:69,to:70}, speed:'normal', turnTimer:0, pub:false };
+  resetA:{on:true,from:100,to:70}, resetB:{on:true,from:69,to:0}, speed:'normal', turnTimer:0, pub:false };
 const SPEED = { relaxed:{cd:5000,bot:1.5}, normal:{cd:3000,bot:1}, fast:{cd:2000,bot:.55} };
 function deriveRules(r){
   const x={...DEFAULT_RULES,...(r||{})}; const resets={};
@@ -797,7 +797,9 @@ let hc=load('balls.hc')==='1';
 function applyHC(){ document.documentElement.classList.toggle('hc',hc && skin!=='uno'); }
 applyHC();
 let showSettings=false, showRules=false;
-function localRules(){ try{ return {...DEFAULT_RULES, ...(JSON.parse(load('balls.rules')||'{}')), pub:false}; }catch(e){ return {...DEFAULT_RULES}; } }
+function localRules(){ try{ const r={...DEFAULT_RULES, ...(JSON.parse(load('balls.rules')||'{}')), pub:false};
+  if(r.resetB&&r.resetB.from===69&&r.resetB.to===70) r.resetB={...r.resetB,to:0};
+  return r; }catch(e){ return {...DEFAULT_RULES}; } }
 function saveLocalRules(r){ const {pub,...rest}=r; store('balls.rules',JSON.stringify(rest)); }
 let lobbyApi=null, openTables=[], listingSig=null, autoTimer=null, autoKey=null;
 let homeErr='', botCount=+(load('balls.bots')||3), showScores=false, seenHand=new Set(), firstSnap=true;
@@ -1064,7 +1066,7 @@ function renderHome(){
       <li>With <b>5 or less</b>, wait a turn, then call <b>Balls</b> at the start of your next turn. Lowest hand wins the round (0 points), everyone else adds their hand.</li>
       <li>If anyone ties or beats the caller: <b>false Balls</b>, the caller gets <b>+25</b> (instead of their hand). One player tied or lower wins the round; if two or more did, nobody wins and a coin flip picks the dealer.</li>
       <li>Hosts can change the numbers below under <b>Table rules</b>.</li>
-      <li>Landing on exactly <b>100</b> or <b>69</b> resets you to <b>70</b>. Reach <b>101+</b> and you're out. Last one standing wins.</li>
+      <li>Landing on exactly <b>100</b> resets you to <b>70</b>. Landing on exactly <b>69</b> resets you to <b>0</b>. Reach <b>101+</b> and you're out. Last one standing wins.</li>
       <li style="list-style:none;margin-left:-18px;margin-top:6px;font-size:12px">Pixel font “balatro” by localthunk, SIL Open Font License 1.1.</li>
     </ul></details>
   </div>`;
