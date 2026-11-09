@@ -936,9 +936,13 @@ function flaps(a,t,n,{gap=.022,freq=2200,gain=.3,shrink=.8}={}){
   return tt;
 }
 const SFX={
-  /* a card flaps through the air and slaps down */
-  play(delayMs=0){ const a=audio(); if(!a||!sfxOn||a.state!=='running') return; const t=Math.max(a.currentTime,a.currentTime+delayMs/1000-.03);
-    noise(a,t,{freq:2600,freqEnd:1100,q:.7,gain:.5,attack:.006,decay:.085}); tone(a,t+.02,{f:130,fEnd:55,gain:.2,dur:.07}); },
+  /* a card is played: a bright, soft pop with a little body; each extra card in a set is pitched a step higher */
+  play(delayMs=0,step=0){ const a=audio(); if(!a||!sfxOn||a.state!=='running') return; const t=a.currentTime+Math.max(0,delayMs/1000);
+    const m=(1+step*.12)*(0.97+Math.random()*.06);
+    noise(a,t,{freq:5200,q:.6,gain:.16,attack:.001,decay:.012});
+    tone(a,t,{f:780*m,fEnd:600*m,type:'triangle',gain:.2,dur:.075});
+    tone(a,t,{f:1560*m,fEnd:1200*m,type:'sine',gain:.05,dur:.05});
+    tone(a,t,{f:190,fEnd:105,type:'sine',gain:.16,dur:.06}); },
   /* a card flicked off the deck or the pile */
   grab(delayMs=0){ const a=audio(); if(!a||!sfxOn||a.state!=='running') return; const t=a.currentTime+delayMs/1000;
     noise(a,t,{freq:3800,freqEnd:1700,q:.5,gain:.2,attack:.035,decay:.06});
@@ -1074,7 +1078,7 @@ function animateMove(prev,cur,before){
     cur.thrown.forEach((c,i)=>{
       const from = who===me ? before['c:'+c] : before['p:'+who];
       fly(cardHTML(c), from, after(`.mythrow [data-card="${c}"]`), {delay:i*80});
-      SFX.play(i*80+420);
+      SFX.play(i*80+420,i);
     });
     return;
   }
