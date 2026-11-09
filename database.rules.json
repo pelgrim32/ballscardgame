@@ -15,6 +15,15 @@
         ".write": "$code.matches(/^[A-Z]{4}$/)",
         ".validate": "newData.hasChildren(['n', 'p', 'm', 'at'])"
       }
+    },
+    "chat": {
+      "$code": {
+        ".read": "$code.matches(/^[A-Z]{4}$/)",
+        "$msg": {
+          ".write": "$code.matches(/^[A-Z]{4}$/) && !data.exists()",
+          ".validate": "newData.hasChildren(['id', 't', 'at']) && newData.child('t').isString() && newData.child('t').val().length <= 140"
+        }
+      }
     }
   }
 }
