@@ -980,8 +980,8 @@ const SFX={
   lose(){ const a=audio(); if(!a||!sfxOn||a.state!=='running') return; const t=a.currentTime+.02;
     [[392,.22],[311,.22],[262,.6]].forEach(([f,d],i)=>{ tone(a,t+i*.2,{f,type:'triangle',gain:.11,dur:d}); tone(a,t+i*.2,{f:f/2,type:'sine',gain:.05,dur:d}); }); },
   /* riffle shuffle */
-  shuffle(){ const a=audio(); if(!a||!sfxOn||a.state!=='running') return; flaps(a,a.currentTime,16,{gap:.03,freq:2300,gain:.2,shrink:.97});
-    noise(a,a.currentTime+.5,{freq:1500,q:.6,gain:.35,attack:.004,decay:.09}); }
+  /* round start: the card-grab sound five times, like cards being dealt */
+  shuffle(){ for(let i=0;i<5;i++) SFX.grab(i*220); }
 };
 /* which jingle this player hears when a round or game ends */
 function outcomeJingle(st){
