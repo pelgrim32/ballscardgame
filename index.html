@@ -36,6 +36,8 @@ svg.spr{shape-rendering:crispEdges;display:block}
 /* ---------- home ---------- */
 .home{justify-content:flex-start;align-items:center;overflow-y:auto}
 .home>:first-child{margin-top:auto}.home>:last-child{margin-bottom:auto}
+.home.lobby>:first-child{margin-top:0}.home.lobby>:last-child{margin-bottom:0}
+.home.lobby{padding-bottom:24px}
 .logo{font-family:var(--px);font-weight:700;font-size:clamp(60px,18vw,112px);line-height:.9;color:var(--ink);text-shadow:4px 4px 0 var(--red),8px 8px 0 var(--panel-lo);letter-spacing:.02em;margin:18px 0 6px;animation:bob 3s ease-in-out infinite}
 @keyframes bob{0%,100%{transform:translateY(0) rotate(-3deg)}50%{transform:translateY(-6px) rotate(-1deg)}}
 .tag{color:var(--ink-dim);text-align:center;max-width:32ch;margin:0;font-size:15px;line-height:1.35}
@@ -498,6 +500,8 @@ html .deck .card{position:absolute;left:0;top:0}
   .dock .btn{font-size:22px;padding:11px 20px} .balls{font-size:22px;padding:11px 20px}
   .home .panel{gap:14px} .tag{font-size:17px}
   .home{display:grid;grid-template-columns:repeat(2,minmax(0,380px));justify-content:center;align-content:center;gap:14px 18px}
+  .home.lobby{align-content:start;align-items:start}
+  .home.lobby #b-leave{grid-column:1/-1;justify-self:center}
   .home>:first-child{margin-top:0}.home>:last-child{margin-bottom:0}
   .home .logo,.home .tag{grid-column:1/-1;justify-self:center}
   .home .logo{margin-top:0}
@@ -1021,6 +1025,10 @@ function leaveTable(msg){
 
 /* ================= RENDER ================= */
 function render(){
+  const prevScreen=document.querySelector('#app .screen'), prevKind=prevScreen?prevScreen.className:'', prevTop=prevScreen?prevScreen.scrollTop:0;
+  try{ renderInner(); }finally{ const now=document.querySelector('#app .screen'); if(now&&prevTop&&now.className===prevKind) now.scrollTop=prevTop; }
+}
+function renderInner(){
   layer.innerHTML='';
   useRules(S);
   if(!mode){ renderHome(); if(showRules) renderRulesSheet(); return; }
@@ -1086,7 +1094,7 @@ function renderHome(){
 
 function renderLobby(){
   const isHost=S.host===me;
-  app.innerHTML=`<div class="screen home">
+  app.innerHTML=`<div class="screen home lobby">
     <div class="panel">
       <p class="note" style="text-align:center">Table code</p>
       <div class="code">${esc(S.code)}</div>
