@@ -667,8 +667,10 @@ html.compact:not(.skin-classic) .screen{padding-block:6px}
 let lang=(()=>{ try{ const v=localStorage.getItem('balls.lang'); if(v==='nl'||v==='en') return v; }catch(e){} return /^nl\b/i.test(navigator.language||'')?'nl':'en'; })();
 const L=(en,nl)=>lang==='nl'?nl:en;
 const GAME=()=>L('Balls!','Balzakken');
-const VERSION='1.5.1';
+const VERSION='1.5.2';
 const DEVLOG=[
+  {v:'1.5.2',d:'10-11-2026',en:['When the host leaves, the next player in line becomes host','Players who leave during a match have their turns played for them'],
+                            nl:['Als de host weggaat, wordt de volgende speler aan tafel host','Spelers die tijdens een potje weggaan, spelen automatisch verder']},
   {v:'1.5.1',d:'10-11-2026',en:['The next round starts after 5 seconds instead of 15','Online tables can now run on our own game server (test page: beta.html)'],
                             nl:['De volgende ronde begint na 5 seconden in plaats van 15','Online tafels kunnen nu op onze eigen spelserver draaien (testpagina: beta.html)']},
   {v:'1.5.0',d:'10-11-2026',en:['Dutch translation: the game becomes Balzakken and you call Balzak','Bots have three difficulties: easy, normal and hard. Online, the host picks each bot\'s difficulty in the lobby','Version number and this dev log','Bot names are new','High-contrast cards removed'],
@@ -753,7 +755,9 @@ function startRound(s){
 function canCall(s,id){ return s.phase==='play' && roundLive(s) && s.step==='throw' && s.players[s.turn].id===id && handVal(s.hands[id])<=RULES.callMax && (s.turnsTaken[id]||0)>0; }
 const roundLive = s => !s.startAt || Date.now() >= s.startAt;
 const LOBBY_AFTER_MS=60000, NEXT_ROUND_MS=5000;
-function resetToLobby(s){ s.phase='lobby'; s.round=0; s.result=null; s.players.forEach(p=>{p.score=0;p.out=false;p.ready=false;}); s.hands={}; s.log=[]; s.history=[]; s.stats={}; s.overAt=null; }
+/* host leaves: the next person in seat order (not a bot, still at the table) takes over */
+function nextHost(s,id){ const n=s.players.length, i=s.players.findIndex(p=>p.id===id); for(let k=1;k<n;k++){ const p=s.players[(i+k+n)%n]; if(p&&!p.bot&&!p.left&&p.id!==id) return p.id; } return null; }
+function resetToLobby(s){ s.players=s.players.filter(p=>!p.left); s.phase='lobby'; s.round=0; s.result=null; s.players.forEach(p=>{p.score=0;p.out=false;p.ready=false;}); s.hands={}; s.log=[]; s.history=[]; s.stats={}; s.overAt=null; }
 const isReady=(s,p)=>p.bot||p.id===s.host||!!p.ready;
 const notReady=s=>s.players.filter(p=>!isReady(s,p));
 function isTurn(s,id){ return s.phase==='play' && roundLive(s) && s.players[s.turn] && s.players[s.turn].id===id; }
@@ -1271,6 +1275,7 @@ async function act(fn,intent){
 }
 
 function afterState(prev){
+  if(prev && S && mode==='online' && prev.host!==me && S.host===me) toast(L('The host left. You are the host now.','De host is weg. Jij bent nu de host.'));
   if(S && S.result && (S.phase==='reveal'||S.phase==='over') && lastSplash!==S.result.id){
     splash(); outcomeJingle(S); lastSplash=S.result.id;
   }
@@ -1362,15 +1367,15 @@ function scheduleBots(){
   if(!S||S.phase!=='play'||!iDriveBots()) return;
   useRules(S);
   const cur=S.players[S.turn]; if(!cur) return;
-  if(!cur.bot){ scheduleTimeout(cur); return; }
+  if(!cur.bot&&!cur.left){ scheduleTimeout(cur); return; }
   const key=S.v+':'+S.turn+':'+S.step;
   if(botKey===key) return;
   botKey=key; clearTimeout(botTimer);
   botTimer=setTimeout(()=>{
     if(!S||S.phase!=='play') return;
     useRules(S);
-    const c=S.players[S.turn]; if(!c||!c.bot) return;
-    const lvl=lvlOf(S,c);
+    const c=S.players[S.turn]; if(!c||!(c.bot||c.left)) return;
+    const lvl=c.bot?lvlOf(S,c):'normal';
     if(S.step==='throw'){
       if(botWantsBalls(S,c.id,lvl)) act(s=>doBalls(s,c.id));
       else { const h=S.hands[c.id]; const stuck=(S.turnsTaken[c.id]||0)>25 && Math.random()<.3; const t=stuck?[h[Math.floor(Math.random()*h.length)]]:botThrowFor(S,c.id,lvl); act(s=>doThrow(s,c.id,t)); }
@@ -1479,7 +1484,11 @@ async function roomTxn(fn,r=ref){
 function leaveTable(msg){
   if(serverMode){ const w=sock; sockWant=false; sock=null; clearTimeout(sockTimer); srvChat=[];
     if(w){ try{ if(w.readyState===1) w.send(JSON.stringify({t:'act',a:'leave'})); }catch(e){} setTimeout(()=>{ try{ w.close(); }catch(e){} },200); } }
-  if(mode==='online'&&S&&S.phase==='lobby'&&S.host!==me&&ref){ const r=ref, id=me; roomTxn(d=>{ if(d.phase!=='lobby') return false; const n=d.players.length; d.players=d.players.filter(p=>p.id!==id); if(d.players.length===n) return false; },r).catch(()=>{}); }
+  if(mode==='online'&&S&&ref){ const r=ref, id=me; roomTxn(d=>{
+      const p=d.players.find(x=>x.id===id); if(!p) return false;
+      if(d.host===id){ const nh=nextHost(d,id); if(nh){ d.host=nh; const q=d.players.find(x=>x.id===nh); if(q) q.ready=false; } }
+      if(d.phase==='lobby') d.players=d.players.filter(x=>x.id!==id); else p.left=true;
+    },r).catch(()=>{}); }
   lastAllReady=null;
   stopChat(); showInfo=false;
   if(S && S.host===me && listingSig && lobbyApi){ try{ lobbyApi.drop(S.code); }catch(e){} listingSig=null; }

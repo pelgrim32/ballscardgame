@@ -173,8 +173,9 @@ export class Table {
       case 'toLobby': { if(s.phase!=='over'||!me) return; this.toLobby(); break; }
       case 'leave': {
         if(!me) return;
-        if(s.phase==='lobby'){ s.players=s.players.filter(p=>p.id!==id); delete this.sec[id]; if(host) this.passHost(); }
-        else { me.left=true; this.meta.away[id]=Date.now()-AWAY_PLAY_MS; if(host) this.passHost(); }
+        if(host) this.passHost();
+        if(s.phase==='lobby'){ s.players=s.players.filter(p=>p.id!==id); delete this.sec[id]; }
+        else { me.left=true; this.meta.away[id]=Date.now()-AWAY_PLAY_MS; }
         break; }
       default: return;
     }
@@ -193,9 +194,12 @@ export class Table {
     for(const p of s.players) delete p.left;
     for(const id of Object.keys(this.sec)) if(!s.players.some(p=>p.id===id)) delete this.sec[id];
   }
+  /* next person in seat order after the host; someone who is connected comes first */
   passHost(){
     const s=this.s; if(!s) return;
-    const next=s.players.find(p=>!p.bot&&p.id!==s.host&&this.online(p.id))||s.players.find(p=>!p.bot&&p.id!==s.host);
+    const n=s.players.length, i=s.players.findIndex(p=>p.id===s.host), order=[];
+    for(let k=1;k<=n;k++){ const p=s.players[((i<0?-1:i)+k+n)%n]; if(p&&!p.bot&&!p.left&&p.id!==s.host) order.push(p); }
+    const next=order.find(p=>this.online(p.id))||order[0];
     if(next){ s.host=next.id; next.ready=false; }
   }
 
@@ -217,6 +221,9 @@ export class Table {
     if(s.phase==='lobby'){
       for(const p of humans){ const t=this.meta.away[p.id]; if(t&&!this.online(p.id)) out.push({at:t+AWAY_LOBBY_MS,run:()=>{ if(p.id===s.host){ this.passHost(); if(s.host===p.id) return false; } s.players=s.players.filter(x=>x.id!==p.id); delete this.sec[p.id]; delete this.meta.away[p.id]; return true; }}); }
     }
+    const hp=s.players.find(p=>p.id===s.host);
+    if(s.phase!=='lobby'&&hp&&!hp.bot&&!this.online(hp.id)&&this.meta.away[hp.id]&&humans.some(p=>p.id!==hp.id&&this.online(p.id)))
+      out.push({at:this.meta.away[hp.id]+AWAY_PLAY_MS,run:()=>{ const was=s.host; this.passHost(); return s.host!==was; }});
     if(s.phase==='play'){
       const cur=s.players[s.turn];
       if(cur){
