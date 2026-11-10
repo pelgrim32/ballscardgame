@@ -511,6 +511,9 @@ html .deck .card{position:absolute;left:0;top:0}
 .rdy{margin-left:auto;font-size:12px;font-weight:700;padding:3px 8px;border-radius:99px;background:rgba(128,128,128,.25);color:var(--ink-dim);white-space:nowrap}
 .rdy.on{background:#2fa84f;color:#fff}
 .plist li .rdy+.x{margin-left:6px}
+.plist .lvlsel{margin-left:auto;font:inherit;font-size:13px;font-weight:700;color:var(--ink);background:var(--panel-lo);border:2px solid var(--line);border-radius:8px;padding:3px 6px}
+.plist .lvlsel+.x{margin-left:6px}
+.rdy.lvl{background:rgba(128,128,128,.25);color:var(--ink)}
 #b-ready[aria-pressed="true"]{border:2px solid #2fa84f}
 .skin-sketch .rdy{border:1.5px solid var(--line)}
 .skin-sketch .rdy.on{background:#9fe1a6;color:var(--ink)}
@@ -666,8 +669,8 @@ const L=(en,nl)=>lang==='nl'?nl:en;
 const GAME=()=>L('Balls!','Balzakken');
 const VERSION='1.5.0';
 const DEVLOG=[
-  {v:'1.5.0',d:'10-11-2026',en:['Dutch translation: the game becomes Balzakken and you call Balzak','Bots have three difficulties: easy, normal and hard','Version number and this dev log','Bot names are new','High-contrast cards removed'],
-                            nl:['Nederlandse vertaling: het spel heet Balzakken en je roept Balzak','Bots hebben drie moeilijkheden: makkelijk, normaal en moeilijk','Versienummer en dit ontwikkellogboek','Nieuwe namen voor de bots','Kaarten met hoog contrast verwijderd']},
+  {v:'1.5.0',d:'10-11-2026',en:['Dutch translation: the game becomes Balzakken and you call Balzak','Bots have three difficulties: easy, normal and hard. Online, the host picks each bot\'s difficulty in the lobby','Version number and this dev log','Bot names are new','High-contrast cards removed'],
+                            nl:['Nederlandse vertaling: het spel heet Balzakken en je roept Balzak','Bots hebben drie moeilijkheden: makkelijk, normaal en moeilijk. Online kiest de host per bot de moeilijkheid in de lobby','Versienummer en dit ontwikkellogboek','Nieuwe namen voor de bots','Kaarten met hoog contrast verwijderd']},
   {v:'1.4.0',d:'10-11-2026',en:['Ready up before the host can start','Next round starts by itself after 15 seconds, even if the host is away','Bots play much better: they count cards and call Balls on the odds','Chat messages pop up over the player with a sound','The table fits any window size','Rewritten tutorial'],
                             nl:['Eerst klaarmelden voordat de host kan starten','De volgende ronde start vanzelf na 15 seconden, ook als de host weg is','Bots spelen veel beter: ze tellen kaarten en roepen Balzak op basis van hun kansen','Chatberichten verschijnen boven de speler, met een geluidje','De tafel past in elk venster','Nieuwe uitleg']},
   {v:'1.3.0',d:'10-11-2026',en:['Card sounds and jingles','Round countdown and placings (1st, 2nd…)','Chat and reactions','Info button with card values','Match summary and round-by-round table at the end','Everyone returns to the lobby 60 seconds after a match'],
@@ -1528,7 +1531,7 @@ function renderLobby(){
     </div>
     <div class="panel">
       <h2>${L('Players','Spelers')} ${S.players.length}/${RULES.maxPlayers}</h2>
-      <ul class="plist">${S.players.map(p=>`<li><span class="av" style="background:${avColor(p.id)}">${esc((p.name||'?')[0].toUpperCase())}</span><span>${esc(p.name)}${youTag(p)}${p.bot?' · bot':''}${p.id===S.host?' · host':''}</span>${p.id===S.host?'':`<span class="rdy ${isReady(S,p)?'on':''}">${isReady(S,p)?L('Ready','Klaar'):L('Not ready','Niet klaar')}</span>`}${isHost&&p.id!==me?`<button class="x" data-kick="${esc(p.id)}">${L('Remove','Verwijderen')}</button>`:''}</li>`).join('')}</ul>
+      <ul class="plist">${S.players.map(p=>`<li><span class="av" style="background:${avColor(p.id)}">${esc((p.name||'?')[0].toUpperCase())}</span><span>${esc(p.name)}${youTag(p)}${p.bot?' · bot':''}${p.id===S.host?' · host':''}</span>${p.bot?(isHost?`<select class="lvlsel" data-botlvl="${esc(p.id)}" aria-label="${L('Difficulty for','Moeilijkheid voor')} ${esc(p.name)}">${BOT_LEVELS.map(v=>`<option value="${v}" ${lvlOf(S,p)===v?'selected':''}>${lvlName(v)}</option>`).join('')}</select>`:`<span class="rdy lvl">${lvlName(lvlOf(S,p))}</span>`):p.id===S.host?'':`<span class="rdy ${isReady(S,p)?'on':''}">${isReady(S,p)?L('Ready','Klaar'):L('Not ready','Niet klaar')}</span>`}${isHost&&p.id!==me?`<button class="x" data-kick="${esc(p.id)}">${L('Remove','Verwijderen')}</button>`:''}</li>`).join('')}</ul>
       ${isHost?`<div class="row"><button class="btn ghost grow" id="b-bot" ${S.players.length>=RULES.maxPlayers?'disabled':''}>${L('Add bot','Bot toevoegen')}</button><button class="btn grow" id="b-start" ${S.players.length<2||nr.length?'disabled':''}>${L('Start game','Spel starten')}</button></div>
       <p class="note">${S.players.length<2?L('Add a bot or wait for a friend to join.','Voeg een bot toe of wacht tot er een vriend meedoet.'):nr.length?L(`Waiting for ${nr.map(p=>esc(p.name)).join(', ')} to ready up. You can remove someone who left.`,`Wachten tot ${nr.map(p=>esc(p.name)).join(', ')} klaar is. Je kunt iemand die weg is verwijderen.`):L('Everyone is ready.','Iedereen is klaar.')}</p>`
       :`<button class="btn ${meReady?'ghost':''}" id="b-ready" aria-pressed="${meReady}">${meReady?L('Ready ✓ · tap to cancel','Klaar ✓ · tik om te annuleren'):L('Ready up','Ik ben klaar')}</button>
@@ -1546,8 +1549,9 @@ function renderLobby(){
   const rb=$('#b-ready'); if(rb) rb.onclick=()=>{ const want=!meReady; rb.disabled=true; roomTxn(d=>{ if(d.phase!=='lobby') return false; const p=d.players.find(x=>x.id===me); if(!p) return false; p.ready=want; }).catch(()=>{ toast(L('That did not reach the table. Try again.','Dat kwam niet aan bij de tafel. Probeer het opnieuw.')); rb.disabled=false; }); };
   if(isHost) wireRulesForm(app, deriveRules(S.rules), r=>{ saveLocalRules(r); act(s=>{ if(s.players.length>r.maxPlayers) return L('There are already more players than that.','Er zitten al meer spelers aan tafel.'); s.rules=r; s.players.forEach(p=>{ if(p.id!==s.host) p.ready=false; }); }); });
   if(isHost){
-    $('#b-bot').onclick=()=>act(s=>{ const used=new Set(s.players.map(p=>p.name)); const n=BOT_NAMES.find(x=>!used.has(x))||'Bot'; s.players.push({id:'b'+newId(),name:n,score:0,out:false,bot:true}); });
+    $('#b-bot').onclick=()=>act(s=>{ const used=new Set(s.players.map(p=>p.name)); const n=BOT_NAMES.find(x=>!used.has(x))||'Bot'; s.players.push({id:'b'+newId(),name:n,score:0,out:false,bot:true,lvl:localRules().botLevel||'normal'}); });
     $('#b-start').onclick=()=>act(s=>{ if(s.players.length<2) return L('You need at least 2 players.','Je hebt minstens 2 spelers nodig.'); const w=notReady(s); if(w.length) return L('Waiting for '+w.map(p=>p.name).join(', ')+' to ready up.','Wachten tot '+w.map(p=>p.name).join(', ')+' klaar is.'); const cn=cardsNeeded(s.rules,s.players.length); if(cn.need>cn.have) return L(`Not enough cards: ${s.players.length} players need ${cn.need}, the deck has ${cn.have}. Add a deck or deal fewer cards.`,`Niet genoeg kaarten: ${s.players.length} spelers hebben er ${cn.need} nodig, het spel heeft er ${cn.have}. Voeg een kaartspel toe of deel minder kaarten.`); s.dealer=Math.floor(Math.random()*s.players.length); s.v_round=1; startRound(s); });
+    app.querySelectorAll('[data-botlvl]').forEach(el=>el.onchange=()=>{ const id=el.dataset.botlvl, v=el.value; if(!BOT_LEVELS.includes(v)) return; act(s=>{ const b=s.players.find(x=>x.id===id&&x.bot); if(b) b.lvl=v; }); });
     app.querySelectorAll('[data-kick]').forEach(b=>b.onclick=()=>act(s=>{ s.players=s.players.filter(p=>p.id!==b.dataset.kick); }));
   }
 }
@@ -1660,13 +1664,13 @@ const RULE_FIELDS=[
   ['elimAt',()=>L('Out at','Uit bij'),[51,76,101,151,201],null,v=>v+L(' points',' punten')],
   ['jokerVal',()=>L('Joker value','Waarde joker'),[0,10,15,20,25,30,50]],
   ['jackVal',()=>L('Jack value','Waarde boer'),[-5,-2,-1,0,1,11]],
-  ['botLevel',()=>L('Bot difficulty','Moeilijkheid bots'),BOT_LEVELS,null,v=>lvlName(v)],
+  ['botLevel',()=>L('Bot difficulty','Moeilijkheid bots'),BOT_LEVELS,'local',v=>lvlName(v)],
   ['speed',()=>L('Game speed','Spelsnelheid'),['relaxed','normal','fast'],null,v=>({relaxed:L('Relaxed','Rustig'),normal:L('Normal','Normaal'),fast:L('Fast','Snel')})[v]],
   ['turnTimer',()=>L('Turn timer','Beurttimer'),[0,15,30,60],null,v=>v?v+L(' seconds',' seconden'):L('Off','Uit')],
 ];
 function rulesFormHTML(r,{editable=true,online=false}={}){
   const dis=editable?'':'disabled';
-  const sel=([k,lab,opts,only,fmt])=>{ if(only==='online'&&!online) return '';
+  const sel=([k,lab,opts,only,fmt])=>{ if(only==='online'&&!online) return ''; if(only==='local'&&online) return '';
     const list=opts.includes(r[k])?opts:[...opts,r[k]];
     return `<label for="ru-${k}">${lab()}</label><select id="ru-${k}" data-rule="${k}" ${dis}>${list.map(v=>`<option value="${v}" ${v===r[k]?'selected':''}>${fmt?fmt(v):v}</option>`).join('')}</select>`; };
   const reset=(key,lab)=>`<label class="rreset"><input type="checkbox" id="ru-${key}-on" ${r[key].on?'checked':''} ${dis}> ${lab}</label>
