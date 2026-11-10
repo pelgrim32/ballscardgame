@@ -44,6 +44,7 @@ const b64u=buf=>{ let t=''; for(const x of new Uint8Array(buf)) t+=String.fromCh
 const sha256=async t=>b64u(await crypto.subtle.digest('SHA-256',enc.encode(t)));
 async function pwHash(pw,salt){ const k=await crypto.subtle.importKey('raw',enc.encode(pw),'PBKDF2',false,['deriveBits']); return b64u(await crypto.subtle.deriveBits({name:'PBKDF2',hash:'SHA-256',salt:enc.encode(salt),iterations:100000},k,256)); }
 const NAME_RE=/^[A-Za-z0-9_-]{3,14}$/, SESSION_MS=180*864e5;
+const ACH_IDS=['a69','a69x2','a100','w1','w2','w3','w4','j1','j2','j4','t3j','t4','tj','tjj','t2j','flawless'];
 export class Accounts {
   constructor(ctx){ this.ctx=ctx; }
   async fetch(req){
@@ -51,7 +52,7 @@ export class Accounts {
     let b={}; try{ b=await req.json()||{}; }catch(e){}
     const out=(o,status=200)=>new Response(JSON.stringify(o),{status,headers:{'content-type':'application/json'}});
     const no=(code,status=400)=>out({error:code},status);
-    const pub=u=>({name:u.name,wins:u.wins||0,losses:u.losses||0,played:u.played||0,since:u.created});
+    const pub=u=>({name:u.name,wins:u.wins||0,losses:u.losses||0,played:u.played||0,since:u.created,ach:u.ach||{}});
     const keyOf=n=>'u:'+String(n||'').toLowerCase();
     const session=async tok=>{
       if(typeof tok!=='string'||tok.length<20||tok.length>100) return null;
@@ -92,6 +93,13 @@ export class Accounts {
       }
       /* only reachable from game tables, never from the internet */
       case 'verify': { const u=await session(b.token); return u?out({uid:u.uid,name:u.name}):no('auth',401); }
+      case 'achieve': {
+        const u=await st.get(keyOf(b.name)); if(!u||u.uid!==b.uid) return out({fresh:[]});
+        const fresh=[]; u.ach=u.ach||{};
+        for(const a of (Array.isArray(b.ids)?b.ids:[])) if(ACH_IDS.includes(a)&&!u.ach[a]){ u.ach[a]=Date.now(); fresh.push(a); }
+        if(fresh.length) await st.put(keyOf(u.name),u);
+        return out({fresh,user:pub(u)});
+      }
       case 'result': {
         const done={};
         for(const r of (Array.isArray(b.results)?b.results:[])){
@@ -224,8 +232,8 @@ export class Table {
     const fail=msg=>{ this.err(ws,msg); return true; };
     let err=null;
     switch(m.a){
-      case 'throw': if(!Array.isArray(m.cards)) return; err=doThrow(s,id,m.cards.map(String).slice(0,12)); break;
-      case 'draw': err=doDraw(s,id,m.src==='avail'?'avail':'deck',String(m.card||'')); break;
+      case 'throw': { if(!Array.isArray(m.cards)) return; const cs=m.cards.map(String).slice(0,12); err=doThrow(s,id,cs); if(!err) this.achThrow(id,cs); break; }
+      case 'draw': { err=doDraw(s,id,m.src==='avail'?'avail':'deck',String(m.card||'')); if(!err){ const h=s.hands[id]; this.achDraw(id,h[h.length-1]); } break; }
       case 'balls': err=doBalls(s,id); break;
       case 'start': {
         if(!host||s.phase!=='lobby') return;
@@ -233,7 +241,7 @@ export class Table {
         else if(notReady(s).length) err=L('Waiting for '+notReady(s).map(p=>p.name).join(', ')+' to ready up.','Wachten tot '+notReady(s).map(p=>p.name).join(', ')+' klaar is.');
         else { const cn=cardsNeeded(s.rules,s.players.length); if(cn.need>cn.have) err=L('Not enough cards for this many players.','Niet genoeg kaarten voor zoveel spelers.'); else { s.stats={}; s.history=[]; s.dealer=Math.floor(Math.random()*s.players.length); s.v_round=1; startRound(s);
           /* win/loss only counts on Standard rules with at least 2 people at the table */
-          s.ranked=rankedRules(s.rules)&&this.humans().length>=2; this.meta.recorded=null; } }
+          s.ranked=rankedRules(s.rules)&&this.humans().length>=2; this.meta.recorded=null; this.meta.achT={}; this.meta.achRes=null; } }
         break; }
       case 'addBot': {
         if(!host||s.phase!=='lobby') return;
@@ -272,7 +280,54 @@ export class Table {
 
   /* match over on Standard rules: 1st place is a win, everyone else a loss (leaving counts as a loss) */
   acctStub(){ return this.env.ACCOUNTS.get(this.env.ACCOUNTS.idFromName('accounts')); }
+  /* ---- achievements: Standard rules on a server table, players with an account, only their own moves ---- */
+  achOn(id){ const s=this.s; return !!(s&&rankedRules(s.rules)&&(this.meta.acct||{})[id]); }
+  achT(id){ const s=this.s, all=this.meta.achT=this.meta.achT||{}; const t=all[id]=all[id]||{h69:0,lost:false}; if(t.round!==s.round){ t.round=s.round; t.jok=0; t.jack=false; } return t; }
+  achGive(id,a){ if(!this.achOn(id)) return; (this.pend=this.pend||{})[id]=this.pend[id]||new Set(); this.pend[id].add(a); }
+  achThrow(id,cards){
+    if(!this.achOn(id)) return;
+    const t=this.achT(id), by={}; for(const c of cards){ const r=rank(c); by[r]=(by[r]||0)+1; }
+    const jok=by.X||0, jacks=by.J||0;
+    if(Object.values(by).some(n=>n>=4)) this.achGive(id,'t4');
+    if(jok>=3) this.achGive(id,'t3j');
+    if(jacks>=1) this.achGive(id,'tj');
+    if(jacks>=2) this.achGive(id,'t2j');
+    t.jack=jacks>=1;
+  }
+  achDraw(id,c){
+    if(!this.achOn(id)) return;
+    const t=this.achT(id);
+    if(c&&rank(c)==='X'){ t.jok++; this.achGive(id,'j1'); if(t.jok>=2) this.achGive(id,'j2'); if(t.jok>=4) this.achGive(id,'j4'); if(t.jack) this.achGive(id,'tjj'); }
+    t.jack=false;
+  }
+  achRound(){
+    const s=this.s, res=s&&s.result;
+    if(!res||this.meta.achRes===res.id||!rankedRules(s.rules)) return;
+    this.meta.achRes=res.id;
+    for(const row of res.rows){
+      if(!this.achOn(row.id)) continue;
+      const t=this.achT(row.id), pre=row.before+row.gain;
+      if(pre===69){ t.h69++; this.achGive(row.id,'a69'); if(t.h69>=2) this.achGive(row.id,'a69x2'); }
+      if(pre===100) this.achGive(row.id,'a100');
+      if(res.winner!==row.id) t.lost=true;
+      else if(row.v<=-1&&row.v>=-4) this.achGive(row.id,'w'+(-row.v));
+    }
+    if(s.phase==='over'){ const place=placings(s); for(const p of s.players) if(place[p.id]===1&&this.achOn(p.id)&&!this.achT(p.id).lost) this.achGive(p.id,'flawless'); }
+  }
+  async achFlush(){
+    const pend=this.pend; this.pend=null; if(!pend) return;
+    for(const [pid,set] of Object.entries(pend)){
+      const a=(this.meta.acct||{})[pid]; if(!a||!set.size) continue;
+      try{
+        const r=await this.acctStub().fetch('https://acct/achieve',{method:'POST',body:JSON.stringify({uid:a.uid,name:a.name,ids:[...set]})});
+        const {fresh,user}=await r.json();
+        if(fresh&&fresh.length) for(const w of this.sockets()) if(this.att(w).id===pid) this.sendTo(w,{t:'ach',ids:fresh,user});
+      }catch(e){}
+    }
+  }
+
   async record(){
+    this.achRound(); await this.achFlush();
     const s=this.s;
     if(!s||s.phase!=='over'||!s.ranked||!s.result||this.meta.recorded===s.result.id) return;
     this.meta.recorded=s.result.id;

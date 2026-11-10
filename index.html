@@ -89,6 +89,15 @@ input.txt::placeholder{color:rgba(255,255,255,.35)}
 .acctrow .btn{padding:8px 14px;font-size:16px}
 .acctsheet .stiles{margin:4px 0;grid-template-columns:repeat(2,minmax(0,1fr))}
 .note.ranked.on{color:var(--ink)}
+.vf{display:inline-block;margin-left:5px;font-size:12px;font-weight:700;color:var(--green)}
+.achh{margin:8px 0 2px;font-size:18px}.achh small{font-size:14px;color:var(--ink-dim);font-weight:600}
+.achlist{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:6px}
+.achlist li{display:flex;align-items:center;gap:10px;background:var(--panel-lo);border-radius:8px;padding:7px 10px;opacity:.5}
+.achlist li.got{opacity:1}
+.achlist li>span:nth-child(2){display:flex;flex-direction:column;min-width:0}
+.achlist b{font-size:15px}.achlist small{font-size:13px;color:var(--ink-dim);line-height:1.25}
+.achic{font-size:20px;line-height:1;color:var(--ink-dim)}.achlist li.got .achic{color:var(--gold)}
+.ui-felt .achlist li{background:rgba(0,0,0,.3)}
 details.rules{width:100%;max-width:380px}
 details.rules summary{cursor:pointer;font-weight:700;font-size:18px;padding:8px 0;color:var(--gold);text-transform:uppercase;letter-spacing:.05em}
 details.rules ul{margin:4px 0 0;padding-left:18px;color:var(--ink-dim);line-height:1.45;font-size:15px}
@@ -684,8 +693,8 @@ const L=(en,nl)=>lang==='nl'?nl:en;
 const GAME=()=>L('Balls!','Balzakken');
 const VERSION='1.6.0';
 const DEVLOG=[
-  {v:'1.6.0',d:'11-11-2026',en:['Accounts: log in to keep a win/loss record','Online matches on Standard rules with at least 2 people count'],
-                            nl:['Accounts: log in om je winst en verlies bij te houden','Online potjes met standaardregels en minstens 2 mensen tellen mee']},
+  {v:'1.6.0',d:'11-11-2026',en:['Accounts: log in to keep a win/loss record','Online matches on Standard rules with at least 2 people count','16 achievements to unlock'],
+                            nl:['Accounts: log in om je winst en verlies bij te houden','Online potjes met standaardregels en minstens 2 mensen tellen mee','16 prestaties om te behalen']},
   {v:'1.5.2',d:'10-11-2026',en:['When the host leaves, the next player in line becomes host','Players who leave during a match have their turns played for them'],
                             nl:['Als de host weggaat, wordt de volgende speler aan tafel host','Spelers die tijdens een potje weggaan, spelen automatisch verder']},
   {v:'1.5.1',d:'10-11-2026',en:['The next round starts after 5 seconds instead of 15','Online tables can now run on our own game server (test page: beta.html)'],
@@ -1224,6 +1233,27 @@ async function refreshAcct(){
   if(r.ok) acct=r.user; else if(r.code==='auth') setAcct(null,null);
   if(!mode) render();
 }
+/* achievements: earned on server tables with Standard rules, with an account */
+const ACH=[
+  ['a69',L('Nice','Nice'),L('Get exactly 69 points','Kom precies op 69 punten')],
+  ['a69x2',L('Nice, twice','Twee keer nice'),L('Get 69 points twice in one match','Kom twee keer op 69 in één potje')],
+  ['a100',L('On the edge','Op het randje'),L('Get exactly 100 points','Kom precies op 100 punten')],
+  ['w1',L('Below zero','Onder nul'),L('Win a round with -1','Win een ronde met -1')],
+  ['w2',L('Deeper','Dieper'),L('Win a round with -2','Win een ronde met -2')],
+  ['w3',L('Deep dive','Diepe duik'),L('Win a round with -3','Win een ronde met -3')],
+  ['w4',L('Four Jacks','Vier boeren'),L('Win a round with -4','Win een ronde met -4')],
+  ['j1',L('Wild card','Wildcard'),L('Grab a Joker in a round','Pak een joker in een ronde')],
+  ['j2',L('Double trouble','Dubbel pech'),L('Grab 2 Jokers in one round','Pak 2 jokers in één ronde')],
+  ['j4',L('The whole circus','Het hele circus'),L('Grab all 4 Jokers in one round','Pak alle 4 jokers in één ronde')],
+  ['t3j',L('Clown dump','Clowns lozen'),L('Throw away 3 Jokers at once','Gooi 3 jokers tegelijk weg')],
+  ['t4',L('Four of a kind','Carré'),L('Throw away 4 of the same card at once','Gooi 4 dezelfde kaarten tegelijk weg')],
+  ['tj',L('Hit the road, Jack','Dag boer'),L('Throw away a Jack','Gooi een boer weg')],
+  ['tjj',L('Fair trade','Eerlijke ruil'),L('Throw away a Jack, then grab a Joker','Gooi een boer weg en pak daarna een joker')],
+  ['t2j',L('Jack pair','Twee boeren'),L('Throw away 2 Jacks at once','Gooi 2 boeren tegelijk weg')],
+  ['flawless',L('Flawless','Foutloos'),L('Win a match without losing a round','Win een potje zonder een ronde te verliezen')]
+];
+const achName=id=>(ACH.find(a=>a[0]===id)||[id,id])[1];
+const achCount=u=>u&&u.ach?ACH.filter(a=>u.ach[a[0]]).length:0;
 const winPct=u=>u&&u.played?Math.round(100*u.wins/u.played)+'%':'–';
 const recordLine=u=>L(`${u.wins} won · ${u.losses} lost · ${winPct(u)}`,`${u.wins} gewonnen · ${u.losses} verloren · ${winPct(u)}`);
 function renderAcctSheet(){
@@ -1237,6 +1267,9 @@ function renderAcctSheet(){
         <div class="stile"><b>${winPct(acct)}</b><span>${L('Win rate','Winst %')}</span></div>
         <div class="stile"><b>${acct.played}</b><span>${L('Matches','Potjes')}</span></div>
       </div>
+      <h4 class="achh">${L('Achievements','Prestaties')} <small>${achCount(acct)}/${ACH.length}</small></h4>
+      <ul class="achlist">${ACH.map(([id,n,d])=>{ const at=acct.ach&&acct.ach[id]; return `<li class="${at?'got':''}"><span class="achic" aria-hidden="true">${at?'★':'☆'}</span><span><b>${n}</b><small>${d}</small></span>${at?`<span style="position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0)">${L('unlocked','behaald')}</span>`:''}</li>`; }).join('')}</ul>
+      <p class="note">${L('Achievements count at online tables on Standard rules, also with bots.','Prestaties tellen aan online tafels met standaardregels, ook met bots.')}</p>
       <p class="note">${L(`Logged in as <b>${esc(acct.name)}</b>. Only online matches on Standard rules with at least 2 people count.`,`Ingelogd als <b>${esc(acct.name)}</b>. Alleen online potjes met standaardregels en minstens 2 mensen tellen mee.`)}</p>
       ${acctErr?`<p class="err" role="alert">${esc(acctErr)}</p>`:''}
       <div class="row"><button class="btn ghost" id="a-out" ${busy}>${L('Log out','Uitloggen')}</button><button class="btn grow" id="a-close">${L('Done','Klaar')}</button></div>
@@ -1302,6 +1335,7 @@ function serverOpen(code,{create=false}={}){
         else if(m.t==='chat') srvChatPush([m.m]);
         else if(m.t==='chatlog') srvChatPush(m.list||[]);
         else if(m.t==='gone'){ sockWant=false; leaveTable(m.msg); }
+        else if(m.t==='ach'&&m.user){ acct=m.user; (m.ids||[]).forEach((a,i)=>setTimeout(()=>toast('★ '+L('Achievement: ','Prestatie: ')+achName(a)),400+i*2200)); }
         else if(m.t==='record'&&m.user){ acct=m.user; setTimeout(()=>toast(m.win?L(`+1 win · ${recordLine(acct)}`,`+1 gewonnen · ${recordLine(acct)}`):L(`Counted as a loss · ${recordLine(acct)}`,`Telt als verlies · ${recordLine(acct)}`)),2500); }
       };
       ws.onclose=()=>{
@@ -1674,7 +1708,7 @@ function renderHome(){
     <p class="tag">${L('Get your hand to 5 or less, hold it a turn, and call it before anyone else does.','Krijg je hand op 5 of minder, houd hem een beurt vast en roep het voordat een ander het doet.')}</p>
     <div class="panel">
       <label class="lbl" for="in-name">${L('Your name','Jouw naam')}</label>
-      ${acct?`<div class="acctrow"><div><b>${esc(acct.name)}</b><span class="note">${recordLine(acct)}</span></div><button class="btn ghost" id="b-acct">${L('Account','Account')}</button></div>`:
+      ${acct?`<div class="acctrow"><div><b>${esc(acct.name)}</b><span class="note">${recordLine(acct)} · ★ ${achCount(acct)}/${ACH.length}</span></div><button class="btn ghost" id="b-acct">${L('Account','Account')}</button></div>`:
       `<input class="txt" id="in-name" maxlength="14" placeholder="${L('Your nickname here…','Jouw bijnaam hier…')}" value="${esc(myName)}" autocomplete="nickname">
       ${serverMode?`<div class="row acctrow"><span class="note">${L('Want to keep a win/loss record?','Wil je je winst en verlies bijhouden?')}</span><button class="btn ghost" id="b-acct">${L('Log in','Inloggen')}</button></div>`:''}`}
       ${homeErr?`<p class="err" role="alert">${esc(homeErr)}</p>`:''}
@@ -1729,7 +1763,7 @@ function renderLobby(){
     </div>
     <div class="panel">
       <h2>${L('Players','Spelers')} ${S.players.length}/${RULES.maxPlayers}</h2>
-      <ul class="plist">${S.players.map(p=>`<li><span class="av" style="background:${avColor(p.id)}">${esc((p.name||'?')[0].toUpperCase())}</span><span>${esc(p.name)}${youTag(p)}${p.bot?' · bot':''}${p.id===S.host?' · host':''}</span>${p.bot?(isHost?`<select class="lvlsel" data-botlvl="${esc(p.id)}" aria-label="${L('Difficulty for','Moeilijkheid voor')} ${esc(p.name)}">${BOT_LEVELS.map(v=>`<option value="${v}" ${lvlOf(S,p)===v?'selected':''}>${lvlName(v)}</option>`).join('')}</select>`:`<span class="rdy lvl">${lvlName(lvlOf(S,p))}</span>`):p.id===S.host?'':`<span class="rdy ${isReady(S,p)?'on':''}">${isReady(S,p)?L('Ready','Klaar'):L('Not ready','Niet klaar')}</span>`}${isHost&&p.id!==me?`<button class="x" data-kick="${esc(p.id)}">${L('Remove','Verwijderen')}</button>`:''}</li>`).join('')}</ul>
+      <ul class="plist">${S.players.map(p=>`<li><span class="av" style="background:${avColor(p.id)}">${esc((p.name||'?')[0].toUpperCase())}</span><span>${esc(p.name)}${p.acct?`<span class="vf" title="${L('Logged in','Ingelogd')}" aria-label="${L('logged in','ingelogd')}">✓</span>`:''}${youTag(p)}${p.bot?' · bot':''}${p.id===S.host?' · host':''}</span>${p.bot?(isHost?`<select class="lvlsel" data-botlvl="${esc(p.id)}" aria-label="${L('Difficulty for','Moeilijkheid voor')} ${esc(p.name)}">${BOT_LEVELS.map(v=>`<option value="${v}" ${lvlOf(S,p)===v?'selected':''}>${lvlName(v)}</option>`).join('')}</select>`:`<span class="rdy lvl">${lvlName(lvlOf(S,p))}</span>`):p.id===S.host?'':`<span class="rdy ${isReady(S,p)?'on':''}">${isReady(S,p)?L('Ready','Klaar'):L('Not ready','Niet klaar')}</span>`}${isHost&&p.id!==me?`<button class="x" data-kick="${esc(p.id)}">${L('Remove','Verwijderen')}</button>`:''}</li>`).join('')}</ul>
       ${isHost?`<div class="row"><button class="btn ghost grow" id="b-bot" ${S.players.length>=RULES.maxPlayers?'disabled':''}>${L('Add bot','Bot toevoegen')}</button><button class="btn grow" id="b-start" ${S.players.length<2||nr.length?'disabled':''}>${L('Start game','Spel starten')}</button></div>
       <p class="note">${S.players.length<2?L('Add a bot or wait for a friend to join.','Voeg een bot toe of wacht tot er een vriend meedoet.'):nr.length?L(`Waiting for ${nr.map(p=>esc(p.name)).join(', ')} to ready up. You can remove someone who left.`,`Wachten tot ${nr.map(p=>esc(p.name)).join(', ')} klaar is. Je kunt iemand die weg is verwijderen.`):L('Everyone is ready.','Iedereen is klaar.')}</p>`
       :`<button class="btn ${meReady?'ghost':''}" id="b-ready" aria-pressed="${meReady}">${meReady?L('Ready ✓ · tap to cancel','Klaar ✓ · tik om te annuleren'):L('Ready up','Ik ben klaar')}</button>
@@ -1737,7 +1771,7 @@ function renderLobby(){
     </div>
     <div class="panel">
       <h2>${L('Table rules','Tafelregels')}</h2>
-      ${serverMode?`<p class="note ranked ${rankedRules(S.rules)&&S.players.filter(p=>!p.bot).length>=2?'on':''}">${rankedRules(S.rules)?(S.players.filter(p=>!p.bot).length>=2?L('Counts for win/loss (players with an account).','Telt mee voor winst/verlies (spelers met een account).'):L('Win/loss counts once 2 or more people are at the table.','Winst/verlies telt mee zodra er 2 of meer mensen aan tafel zitten.')):L('Custom rules: this match doesn\'t count for win/loss.','Eigen regels: dit potje telt niet mee voor winst/verlies.')}</p>`:''}
+      ${serverMode?`<p class="note ranked ${rankedRules(S.rules)&&S.players.filter(p=>!p.bot).length>=2?'on':''}">${rankedRules(S.rules)?(S.players.filter(p=>!p.bot).length>=2?L('Counts for win/loss and achievements (players with an account).','Telt mee voor winst/verlies en prestaties (spelers met een account).'):L('Achievements count. Win/loss counts once 2 or more people are at the table.','Prestaties tellen mee. Winst/verlies telt mee zodra er 2 of meer mensen aan tafel zitten.')):L('Custom rules: this match doesn\'t count for win/loss or achievements.','Eigen regels: dit potje telt niet mee voor winst/verlies of prestaties.')}</p>`:''}
       <p class="note">${isHost?L('Changing a rule clears everyone\'s Ready.','Een regel aanpassen zet iedereen weer op niet klaar.'):L('Only the host can change these.','Alleen de host kan deze aanpassen.')}</p>
       ${rulesFormHTML(deriveRules(S.rules),{editable:isHost,online:true})}
     </div>
