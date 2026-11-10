@@ -696,7 +696,7 @@ function startRound(s){
   const deck=shuffle(fullDeck());
   s.hands={}; s.turnsTaken={};
   for(const p of s.players){ if(p.out) continue; s.hands[p.id]=deck.splice(0,RULES.startHand); s.turnsTaken[p.id]=0; }
-  s.avail=[deck.pop()]; s.pile=[]; s.deck=deck; s.thrown=[]; s.step='throw';
+  s.avail=[deck.pop()]; s.pile=[]; s.known={}; s.deck=deck; s.thrown=[]; s.step='throw';
   s.turn=nextAlive(s,s.dealer); s.phase='play'; s.result=null; s.lastDraw=null;
   s.startAt=Date.now()+(SPEED[RULES.speed]||SPEED.normal).cd; s.turnAt=s.startAt;
   addLog(s,`Round ${s.round} · dealer: ${s.players[s.dealer].name}`);
@@ -716,6 +716,7 @@ function doThrow(s,id,cards){
   if(!cards.length||!cards.every(c=>h.includes(c))) return 'Pick cards from your hand.';
   if(!validThrow(cards)) return 'Throw one card, or two or more of the same rank.';
   s.hands[id]=h.filter(c=>!cards.includes(c));
+  if(s.known&&s.known[id]) s.known[id]=s.known[id].filter(c=>!cards.includes(c));
   bump(s,id,'played',cards.length);
   s.thrown=cards; s.step='draw';
 }
@@ -731,6 +732,7 @@ function doDraw(s,id,src,card){
     c=card; s.avail=s.avail.filter(x=>x!==card);
   }
   s.hands[id].push(c);
+  if(src!=='deck'){ s.known=s.known||{}; (s.known[id]=s.known[id]||[]).push(c); }
   const thrownTxt=s.thrown.map(label).join(' ');
   addLog(s,`${pname(s,id)} threw ${thrownTxt} · ${src==='deck'?'drew from the deck':'took '+label(c)+' from the last throw'}`);
   s.pile.push(...s.avail); s.avail=s.thrown; s.thrown=[];
@@ -774,23 +776,77 @@ function doBalls(s,id){
   if(s.phase==='over') s.overAt=Date.now(); else s.revealAt=Date.now();
 }
 
-/* ---- bots ---- */
-function botThrow(h){
+/* ---- bots ----
+   Bots play to keep their hand value low, count cards, and only call Balls when they are likely to win.
+   They only use what a player at the table could know: their own hand, every card thrown face up,
+   and the cards others took from the last throw. They never look at the deck or at hidden hands. */
+function throwOptions(h){
   const groups={}; for(const c of h){ (groups[rank(c)]=groups[rank(c)]||[]).push(c); }
-  let best=null, bestScore=-1e9;
-  const consider=(cs)=>{ const sc=handVal(cs)+(cs.length-1)*6+cs.length*.01; if(sc>bestScore){bestScore=sc;best=cs;} };
-  for(const c of h) consider([c]);
-  for(const g of Object.values(groups)) if(g.length>=2) consider(g);
+  const opts=h.map(c=>[c]);
+  for(const g of Object.values(groups)) if(g.length>=2){
+    const sorted=g.slice().sort((a,b)=>val(b)-val(a));
+    for(let k=2;k<=sorted.length;k++) opts.push(sorted.slice(0,k));
+  }
+  return opts;
+}
+/* the most points you can get rid of in one throw */
+function bestThrowValue(h){ let m=-1e9; for(const o of throwOptions(h)) m=Math.max(m,handVal(o)); return h.length?m:0; }
+/* greedy throw: dump the most points, prefer more cards on a tie (used for turn time-outs) */
+function botThrow(h){
+  let best=null, bs=-1e9;
+  for(const o of throwOptions(h)){ const sc=handVal(o)+o.length*.01; if(sc>bs){ bs=sc; best=o; } }
   return best;
 }
-function botDraw(s,id){
-  const h=s.hands[id]; let pick=null;
-  const thrownMax=Math.max(...s.thrown.map(val));
-  for(const c of s.avail){ if((val(c)<=3 && val(c)<thrownMax) || h.some(x=>rank(x)===rank(c))){ if(!pick||val(c)<val(pick)) pick=c; } }
-  if(pick && Math.random()<.2) pick=null;
-  return pick?['avail',pick]:['deck'];
+/* cards this player cannot see anywhere: they are in the deck or in other players' hidden cards */
+function unseenPool(s,id){
+  const gone=new Set([...(s.hands[id]||[]),...(s.avail||[]),...(s.thrown||[]),...(s.pile||[])]);
+  for(const [pid,list] of Object.entries(s.known||{})) if(pid!==id) for(const c of list) gone.add(c);
+  return fullDeck().filter(c=>!gone.has(c));
 }
-const botWantsBalls = (s,id) => canCall(s,id) && (handVal(s.hands[id])<=3 || Math.random()<.55);
+const LOOKAHEAD=.9;
+/* how good a hand is to hold: its value, minus part of what can be thrown next turn */
+const holdScore=h=>handVal(h)-LOOKAHEAD*Math.max(0,bestThrowValue(h));
+function planTurn(s,id){
+  const h=s.hands[id], pool=unseenPool(s,id);
+  const avail=(s.step==='draw'?s.avail:s.avail)||[];
+  const deckEval=rest=>{ if(!pool.length) return 1e9; let t=0; for(const c of pool) t+=holdScore([...rest,c]); return t/pool.length; };
+  let best=null;
+  const opts=s.step==='throw'?throwOptions(h):[null];
+  for(const T of opts){
+    const rest=T?h.filter(c=>!T.includes(c)):h.slice();
+    const draws=[['deck',null,deckEval(rest)]];
+    for(const c of avail) draws.push(['avail',c,holdScore([...rest,c])]);
+    for(const d of draws){ const sc=d[2]-(T?T.length*.01:0); if(!best||sc<best.sc) best={sc,T,src:d[0],card:d[1]}; }
+  }
+  return best;
+}
+function botThrowFor(s,id){ const p=planTurn(s,id); return p&&p.T?p.T:botThrow(s.hands[id]); }
+function botDraw(s,id){
+  const p=planTurn(s,id);
+  if(!s.deck.length&&!s.pile.length&&s.avail.length) return ['avail',s.avail.reduce((a,c)=>val(c)<val(a)?c:a)];
+  return p&&p.src==='avail'?['avail',p.card]:['deck'];
+}
+/* chance that an opponent's hidden hand is at or below mine (normal approximation).
+   Opponents keep low cards, so their unknown cards are assumed lower than the average unseen card. */
+function erf(x){ const t=1/(1+.3275911*Math.abs(x)); const y=1-(((((1.061405429*t-1.453152027)*t)+1.421413741)*t-.284496736)*t+.254829592)*t*Math.exp(-x*x); return x>=0?y:-y; }
+function winChance(s,id){
+  const mine=handVal(s.hands[id]), pool=unseenPool(s,id);
+  const vals=pool.map(val).sort((a,b)=>a-b);
+  const low=vals.slice(0,Math.max(1,Math.ceil(vals.length*.55)));
+  const mu=low.reduce((a,b)=>a+b,0)/low.length, sd=Math.sqrt(low.reduce((a,b)=>a+(b-mu)**2,0)/low.length)||1;
+  let p=1;
+  for(const o of s.players){
+    if(o.out||o.id===id) continue;
+    const n=(s.hands[o.id]||[]).length, known=((s.known||{})[o.id]||[]).filter(c=>(s.hands[o.id]||[]).includes(c));
+    const u=n-known.length, m=handVal(known)+u*mu;
+    if(u<=0){ if(m<=mine) return 0; continue; }
+    const z=(mine+.5-m)/(sd*Math.sqrt(u));
+    p*=1-.5*(1+erf(z/Math.SQRT2));
+  }
+  return p;
+}
+function botNerve(id){ let h=0; for(const ch of String(id)) h=(h*31+ch.charCodeAt(0))|0; return .55+(Math.abs(h)%21)/100; }
+const botWantsBalls=(s,id)=>canCall(s,id)&&(handVal(s.hands[id])<=-1||winChance(s,id)>=botNerve(id));
 const BOT_NAMES=['Bram','Fenna','Sem','Lotte','Daan','Noor','Jip','Tess','Luuk'];
 
 /* ================= HELPERS ================= */
@@ -1164,7 +1220,7 @@ function scheduleBots(){
     const c=S.players[S.turn]; if(!c||!c.bot) return;
     if(S.step==='throw'){
       if(botWantsBalls(S,c.id)) act(s=>doBalls(s,c.id));
-      else { const h=S.hands[c.id]; const stuck=(S.turnsTaken[c.id]||0)>25 && Math.random()<.3; const t=stuck?[h[Math.floor(Math.random()*h.length)]]:botThrow(h); act(s=>doThrow(s,c.id,t)); }
+      else { const h=S.hands[c.id]; const stuck=(S.turnsTaken[c.id]||0)>25 && Math.random()<.3; const t=stuck?[h[Math.floor(Math.random()*h.length)]]:botThrowFor(S,c.id); act(s=>doThrow(s,c.id,t)); }
     } else {
       const [src,card]=botDraw(S,c.id); act(s=>doDraw(s,c.id,src,card));
     }
