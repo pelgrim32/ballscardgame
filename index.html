@@ -74,6 +74,21 @@ input.txt::placeholder{color:rgba(255,255,255,.35)}
 .seg button[aria-pressed="true"]{background:var(--red);border-color:var(--red);box-shadow:0 3px 0 var(--red-lo)}
 .note{font-size:14px;color:var(--ink-dim);margin:0;line-height:1.35}
 .err{color:var(--red);font-size:14px;margin:0}
+.stiles{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px}
+.stile{background:var(--panel-lo);border-radius:10px;padding:10px 6px;text-align:center;display:flex;flex-direction:column;gap:2px}
+.stile b{font-size:26px;font-weight:700;line-height:1.05;font-variant-numeric:tabular-nums}
+.stile b small{font-size:14px;color:var(--ink-dim);font-weight:600}
+.stile span{font-size:12px;color:var(--ink-dim);line-height:1.2}
+.ui-felt .stile{background:rgba(0,0,0,.3)}
+.skin-classic .stile{background:var(--slate);border:3px solid #6b4a2c}
+.skin-classic .stile b{font-family:"Cabin Sketch",cursive;color:#f3f1e8}
+.skin-sketch .stile{background:#fff;border:2px solid var(--line);border-radius:var(--wob)}
+.acctrow{display:flex;align-items:center;justify-content:space-between;gap:10px}
+.acctrow>div{display:flex;flex-direction:column;gap:2px;min-width:0}
+.acctrow b{font-size:20px;overflow:hidden;text-overflow:ellipsis}
+.acctrow .btn{padding:8px 14px;font-size:16px}
+.acctsheet .stiles{margin:4px 0;grid-template-columns:repeat(2,minmax(0,1fr))}
+.note.ranked.on{color:var(--ink)}
 details.rules{width:100%;max-width:380px}
 details.rules summary{cursor:pointer;font-weight:700;font-size:18px;padding:8px 0;color:var(--gold);text-transform:uppercase;letter-spacing:.05em}
 details.rules ul{margin:4px 0 0;padding-left:18px;color:var(--ink-dim);line-height:1.45;font-size:15px}
@@ -667,8 +682,10 @@ html.compact:not(.skin-classic) .screen{padding-block:6px}
 let lang=(()=>{ try{ const v=localStorage.getItem('balls.lang'); if(v==='nl'||v==='en') return v; }catch(e){} return /^nl\b/i.test(navigator.language||'')?'nl':'en'; })();
 const L=(en,nl)=>lang==='nl'?nl:en;
 const GAME=()=>L('Balls!','Balzakken');
-const VERSION='1.5.2';
+const VERSION='1.6.0';
 const DEVLOG=[
+  {v:'1.6.0',d:'11-11-2026',en:['Accounts: log in to keep a win/loss record','Online matches on Standard rules with at least 2 people count'],
+                            nl:['Accounts: log in om je winst en verlies bij te houden','Online potjes met standaardregels en minstens 2 mensen tellen mee']},
   {v:'1.5.2',d:'10-11-2026',en:['When the host leaves, the next player in line becomes host','Players who leave during a match have their turns played for them'],
                             nl:['Als de host weggaat, wordt de volgende speler aan tafel host','Spelers die tijdens een potje weggaan, spelen automatisch verder']},
   {v:'1.5.1',d:'10-11-2026',en:['The next round starts after 5 seconds instead of 15','Online tables can now run on our own game server (test page: beta.html)'],
@@ -704,6 +721,8 @@ function deriveRules(r){
 }
 let RULES = deriveRules(null);
 function useRules(s){ RULES=deriveRules(s&&s.rules); }
+/* win/loss only counts when the card rules are the standard ones (speed, timer and bots don't matter) */
+function rankedRules(r){ const R=deriveRules(r), d=deriveRules(null); return ['startHand','decks','jokers','callMax','falsePenalty','elimAt','jokerVal','jackVal'].every(k=>R[k]===d[k]) && JSON.stringify(R.resets)===JSON.stringify(d.resets); }
 function cardsNeeded(r,n){ const R=deriveRules(r); return {need:n*R.startHand+1, have:R.decks*(52+R.jokers)}; }
 
 const fullDeck = () => { const d=[];
@@ -1181,6 +1200,75 @@ const serverMode=!!SERVER_URL;
 let sock=null, sockWant=false, sockTries=0, sockTimer=null, clockOff=0, srvChat=[], srvChatCb=null;
 let mySecret=load('balls.secret'); if(!mySecret){ mySecret=newId()+newId()+newId(); store('balls.secret',mySecret); }
 const rulesSum=r=>rulesSummary(r).replace(L('Custom rules: ','Eigen regels: '),'');
+/* ---- accounts (live on the game server): name, password, win/loss record ---- */
+let acct=null, acctToken=load('balls.token')||null, showAcct=false, acctErr='', acctBusy=false;
+const ACCT_ERR={
+  name:()=>L('Names are 3–14 letters, numbers, _ or -.','Namen zijn 3–14 letters, cijfers, _ of -.'),
+  pw:()=>L('Use a password of at least 6 characters.','Gebruik een wachtwoord van minstens 6 tekens.'),
+  taken:()=>L('That name is already taken.','Die naam is al bezet.'),
+  login:()=>L('Wrong name or password.','Verkeerde naam of wachtwoord.'),
+  locked:()=>L('Too many tries. Wait 5 minutes and try again.','Te vaak geprobeerd. Wacht 5 minuten en probeer het opnieuw.'),
+  auth:()=>L('You were logged out. Log in again.','Je bent uitgelogd. Log opnieuw in.')
+};
+async function acctApi(path,body){
+  try{
+    const r=await fetch(SERVER_URL+'/api/account/'+path,{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify(body||{})});
+    const d=await r.json().catch(()=>({}));
+    return r.ok?{ok:true,...d}:{ok:false,err:(ACCT_ERR[d.error]||(()=>L('Something went wrong. Try again.','Er ging iets mis. Probeer het opnieuw.')))(),code:d.error};
+  }catch(e){ return {ok:false,err:L('Could not reach the game server. Try again.','De spelserver is niet bereikbaar. Probeer het opnieuw.')}; }
+}
+function setAcct(token,user){ acctToken=token||null; acct=user||null; store('balls.token',acctToken||undefined); }
+async function refreshAcct(){
+  if(!serverMode||!acctToken) return;
+  const r=await acctApi('me',{token:acctToken});
+  if(r.ok) acct=r.user; else if(r.code==='auth') setAcct(null,null);
+  if(!mode) render();
+}
+const winPct=u=>u&&u.played?Math.round(100*u.wins/u.played)+'%':'–';
+const recordLine=u=>L(`${u.wins} won · ${u.losses} lost · ${winPct(u)}`,`${u.wins} gewonnen · ${u.losses} verloren · ${winPct(u)}`);
+function renderAcctSheet(){
+  const busy=acctBusy?'disabled':'';
+  layer.innerHTML=`<div class="overlay" id="ov"><div class="sheet acctsheet" role="dialog" aria-label="${L('Account','Account')}">
+    <h3>${L('Account','Account')}</h3>
+    ${acct?`
+      <div class="stiles">
+        <div class="stile"><b>${acct.wins}</b><span>${L('Won','Gewonnen')}</span></div>
+        <div class="stile"><b>${acct.losses}</b><span>${L('Lost','Verloren')}</span></div>
+        <div class="stile"><b>${winPct(acct)}</b><span>${L('Win rate','Winst %')}</span></div>
+        <div class="stile"><b>${acct.played}</b><span>${L('Matches','Potjes')}</span></div>
+      </div>
+      <p class="note">${L(`Logged in as <b>${esc(acct.name)}</b>. Only online matches on Standard rules with at least 2 people count.`,`Ingelogd als <b>${esc(acct.name)}</b>. Alleen online potjes met standaardregels en minstens 2 mensen tellen mee.`)}</p>
+      ${acctErr?`<p class="err" role="alert">${esc(acctErr)}</p>`:''}
+      <div class="row"><button class="btn ghost" id="a-out" ${busy}>${L('Log out','Uitloggen')}</button><button class="btn grow" id="a-close">${L('Done','Klaar')}</button></div>
+      <details class="rules"><summary>${L('Delete account','Account verwijderen')}</summary><div class="howto">
+        <p class="note">${L('This deletes your name and record for good.','Hiermee verwijder je je naam en je record voorgoed.')}</p>
+        <input class="txt" id="a-delpw" type="password" autocomplete="current-password" placeholder="${L('Your password','Je wachtwoord')}">
+        <div class="row"><button class="btn alt grow" id="a-del" ${busy}>${L('Delete my account','Verwijder mijn account')}</button></div>
+      </div></details>`:`
+      <p class="note">${L('Make an account to keep a win/loss record. Only online matches on Standard rules with at least 2 people count.','Maak een account om je winst en verlies bij te houden. Alleen online potjes met standaardregels en minstens 2 mensen tellen mee.')}</p>
+      <label class="lbl" for="a-name">${L('Name','Naam')}</label>
+      <input class="txt" id="a-name" maxlength="14" autocomplete="username" value="${esc(myName.replace(/[^A-Za-z0-9_-]/g,''))}">
+      <label class="lbl" for="a-pw">${L('Password','Wachtwoord')}</label>
+      <input class="txt" id="a-pw" type="password" maxlength="100" autocomplete="current-password">
+      ${acctErr?`<p class="err" role="alert">${esc(acctErr)}</p>`:''}
+      <div class="row"><button class="btn ghost" id="a-new" ${busy}>${L('Create account','Account maken')}</button><button class="btn grow" id="a-in" ${busy}>${L('Log in','Inloggen')}</button></div>
+      <p class="note">${L('We only store your name, a scrambled version of your password and your record. There is no way to reset a forgotten password, so keep it somewhere safe.','We bewaren alleen je naam, een versleutelde versie van je wachtwoord en je record. Een vergeten wachtwoord kan niet worden hersteld, dus bewaar het goed.')}</p>
+      <div class="row"><button class="btn ghost grow" id="a-close">${L('Cancel','Annuleren')}</button></div>`}
+  </div></div>`;
+  const close=()=>{ showAcct=false; acctErr=''; render(); };
+  $('#a-close').onclick=close;
+  $('#ov').onclick=e=>{ if(e.target.id==='ov') close(); };
+  const run=async(path,body,after)=>{ acctBusy=true; acctErr=''; render(); const r=await acctApi(path,body); acctBusy=false; if(r.ok) after(r); else acctErr=r.err; render(); };
+  if(acct){
+    $('#a-out').onclick=()=>{ const t=acctToken; setAcct(null,null); acctApi('logout',{token:t}); close(); };
+    $('#a-del').onclick=()=>{ const pw=$('#a-delpw').value; run('delete',{token:acctToken,password:pw},()=>{ setAcct(null,null); showAcct=false; toast(L('Your account is deleted.','Je account is verwijderd.')); }); };
+  } else {
+    const go=path=>{ const name=$('#a-name').value.trim(), pw=$('#a-pw').value; run(path,{name,password:pw},r=>{ setAcct(r.token,r.user); myName=r.user.name; store('balls.name',myName); showAcct=false; }); };
+    $('#a-in').onclick=()=>go('login'); $('#a-new').onclick=()=>go('register');
+    $('#a-pw').onkeydown=e=>{ if(e.key==='Enter') go('login'); };
+  }
+}
+
 /* server times are moved onto this device's clock so countdowns line up */
 function fixTimes(s){ for(const k of ['startAt','turnAt','revealAt','overAt','lastActAt','created']) if(typeof s[k]==='number') s[k]+=clockOff; return s; }
 function serverSubscribe(code){
@@ -1197,7 +1285,8 @@ function serverOpen(code,{create=false}={}){
       sock=ws;
       ws.onopen=()=>{
         sockTries=0;
-        const hello={t:'hello',id:me,secret:mySecret,name:myName.trim().slice(0,14),lang};
+        const hello={t:'hello',id:me,secret:mySecret,name:(acct?acct.name:myName).trim().slice(0,14),lang};
+        if(acctToken) hello.token=acctToken;
         if(create&&first){ const r=localRules(); Object.assign(hello,{create:true,rules:r,sum:rulesSum(r)}); }
         ws.send(JSON.stringify(hello));
       };
@@ -1213,6 +1302,7 @@ function serverOpen(code,{create=false}={}){
         else if(m.t==='chat') srvChatPush([m.m]);
         else if(m.t==='chatlog') srvChatPush(m.list||[]);
         else if(m.t==='gone'){ sockWant=false; leaveTable(m.msg); }
+        else if(m.t==='record'&&m.user){ acct=m.user; setTimeout(()=>toast(m.win?L(`+1 win · ${recordLine(acct)}`,`+1 gewonnen · ${recordLine(acct)}`):L(`Counted as a loss · ${recordLine(acct)}`,`Telt als verlies · ${recordLine(acct)}`)),2500); }
       };
       ws.onclose=()=>{
         if(ws!==sock) return;
@@ -1494,7 +1584,7 @@ function leaveTable(msg){
   if(S && S.host===me && listingSig && lobbyApi){ try{ lobbyApi.drop(S.code); }catch(e){} listingSig=null; }
   if(cdEl){ cdEl.remove(); cdEl=null; clearInterval(cdTimer); }
   if(unsub){unsub();unsub=null;} clearTimeout(botTimer); botKey=null;
-  mode=null; S=null; ref=null; roomCode=null; homeErr=msg||''; store('balls.room',undefined); render();
+  mode=null; S=null; ref=null; roomCode=null; homeErr=msg||''; store('balls.room',undefined); render(); refreshAcct();
 }
 
 /* ================= RENDER ================= */
@@ -1506,7 +1596,7 @@ function renderInner(){
   if(!mode||!S||S.phase==='lobby') clearFit();
   layer.innerHTML='';
   useRules(S);
-  if(!mode){ renderHome(); if(showRules) renderRulesSheet(); return; }
+  if(!mode){ renderHome(); if(showRules) renderRulesSheet(); else if(showAcct) renderAcctSheet(); return; }
   if(mode==='online' && !S) { app.innerHTML=`<div class="screen home"><div class="logo ${lang}">${L('BALLS!','BALZAKKEN!')}</div><p class="tag">${L('Sitting down at table','Aanschuiven bij tafel')} ${esc(roomCode)}…</p><button class="btn ghost" id="b-leave">${L('Back','Terug')}</button></div>`; $('#b-leave').onclick=()=>leaveTable(); return; }
   if(S.phase==='lobby') return renderLobby();
   renderGame();
@@ -1584,7 +1674,9 @@ function renderHome(){
     <p class="tag">${L('Get your hand to 5 or less, hold it a turn, and call it before anyone else does.','Krijg je hand op 5 of minder, houd hem een beurt vast en roep het voordat een ander het doet.')}</p>
     <div class="panel">
       <label class="lbl" for="in-name">${L('Your name','Jouw naam')}</label>
-      <input class="txt" id="in-name" maxlength="14" placeholder="${L('Your nickname here…','Jouw bijnaam hier…')}" value="${esc(myName)}" autocomplete="nickname">
+      ${acct?`<div class="acctrow"><div><b>${esc(acct.name)}</b><span class="note">${recordLine(acct)}</span></div><button class="btn ghost" id="b-acct">${L('Account','Account')}</button></div>`:
+      `<input class="txt" id="in-name" maxlength="14" placeholder="${L('Your nickname here…','Jouw bijnaam hier…')}" value="${esc(myName)}" autocomplete="nickname">
+      ${serverMode?`<div class="row acctrow"><span class="note">${L('Want to keep a win/loss record?','Wil je je winst en verlies bijhouden?')}</span><button class="btn ghost" id="b-acct">${L('Log in','Inloggen')}</button></div>`:''}`}
       ${homeErr?`<p class="err" role="alert">${esc(homeErr)}</p>`:''}
     </div>
     <div class="panel">
@@ -1611,7 +1703,8 @@ function renderHome(){
     <p class="version">${GAME()} · ${L('version','versie')} ${VERSION}</p>
   </div>`;
   const nameIn=$('#in-name');
-  nameIn.oninput=()=>{ myName=nameIn.value.slice(0,14); store('balls.name',myName); };
+  if(nameIn) nameIn.oninput=()=>{ myName=nameIn.value.slice(0,14); store('balls.name',myName); };
+  const ab=$('#b-acct'); if(ab) ab.onclick=()=>{ showAcct=true; acctErr=''; render(); };
   app.querySelectorAll('[data-bots]').forEach(b=>b.onclick=()=>{ botCount=+b.dataset.bots; store('balls.bots',String(botCount)); render(); });
   $('#b-local').onclick=()=>{ homeErr=''; startLocal(); };
   $('#b-rules').onclick=()=>{ showRules=true; render(); };
@@ -1644,6 +1737,7 @@ function renderLobby(){
     </div>
     <div class="panel">
       <h2>${L('Table rules','Tafelregels')}</h2>
+      ${serverMode?`<p class="note ranked ${rankedRules(S.rules)&&S.players.filter(p=>!p.bot).length>=2?'on':''}">${rankedRules(S.rules)?(S.players.filter(p=>!p.bot).length>=2?L('Counts for win/loss (players with an account).','Telt mee voor winst/verlies (spelers met een account).'):L('Win/loss counts once 2 or more people are at the table.','Winst/verlies telt mee zodra er 2 of meer mensen aan tafel zitten.')):L('Custom rules: this match doesn\'t count for win/loss.','Eigen regels: dit potje telt niet mee voor winst/verlies.')}</p>`:''}
       <p class="note">${isHost?L('Changing a rule clears everyone\'s Ready.','Een regel aanpassen zet iedereen weer op niet klaar.'):L('Only the host can change these.','Alleen de host kan deze aanpassen.')}</p>
       ${rulesFormHTML(deriveRules(S.rules),{editable:isHost,online:true})}
     </div>
@@ -2167,7 +2261,7 @@ buildPixelJokers().then(()=>{ if(mode) render(); else renderHome(); });
   let user=null;
   try{ [db,user]=await Promise.all([use?use('db'):null, use?use('user'):null]); }catch(e){ db=null; }
   try{ const uid=user?await user.id():null; onlineId=uid||localId; }catch(e){ onlineId=localId; }
-  if(serverMode){ lobbyApi=serverLobby(); chatApi=serverChat(); }
+  if(serverMode){ lobbyApi=serverLobby(); chatApi=serverChat(); refreshAcct(); }
   else {
     if(!db && !use) db = await firebaseDB();
     if(db) lobbyApi = db.lobby || claudeLobby(db);

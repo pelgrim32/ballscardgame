@@ -5,7 +5,7 @@
    The rules engine above this block is copied from index.html by build.mjs,
    so the browser (bot games) and the server always play by the same rules.
    =================================================================== */
-const CORS={'Access-Control-Allow-Origin':'*','Access-Control-Allow-Methods':'GET,OPTIONS','Access-Control-Allow-Headers':'content-type'};
+const CORS={'Access-Control-Allow-Origin':'*','Access-Control-Allow-Methods':'GET,POST,OPTIONS','Access-Control-Allow-Headers':'content-type'};
 const json=(o,status=200)=>new Response(JSON.stringify(o),{status,headers:{'content-type':'application/json',...CORS}});
 const AWAY_PLAY_MS=30000, AWAY_LOBBY_MS=60000, EMPTY_CLOSE_MS=10*60000, CHAT_KEEP=40;
 const ID_RE=/^[A-Za-z0-9_-]{4,40}$/;
@@ -16,6 +16,12 @@ export default {
   async fetch(req, env){
     const url=new URL(req.url);
     if(req.method==='OPTIONS') return new Response(null,{status:204,headers:CORS});
+    const acc=url.pathname.match(/^\/api\/account\/(register|login|me|logout|delete)$/);
+    if(acc){
+      if(req.method!=='POST') return json({error:'Use POST.'},405);
+      const r=await env.ACCOUNTS.get(env.ACCOUNTS.idFromName('accounts')).fetch('https://acct/'+acc[1],{method:'POST',body:await req.text()});
+      return new Response(await r.text(),{status:r.status,headers:{'content-type':'application/json',...CORS}});
+    }
     if(url.pathname==='/api/lobby'){
       const stub=env.LOBBY.get(env.LOBBY.idFromName('lobby'));
       const r=await stub.fetch('https://lobby/list');
@@ -30,6 +36,75 @@ export default {
     return json({error:'not found'},404);
   }
 };
+
+/* ---------- accounts: name + scrambled password + win/loss record, nothing else ----------
+   Passwords are stored as PBKDF2 hashes; sessions as hashes of a random token. */
+const enc=new TextEncoder();
+const b64u=buf=>{ let t=''; for(const x of new Uint8Array(buf)) t+=String.fromCharCode(x); return btoa(t).replace(/\+/g,'-').replace(/\//g,'_').replace(/=+$/,''); };
+const sha256=async t=>b64u(await crypto.subtle.digest('SHA-256',enc.encode(t)));
+async function pwHash(pw,salt){ const k=await crypto.subtle.importKey('raw',enc.encode(pw),'PBKDF2',false,['deriveBits']); return b64u(await crypto.subtle.deriveBits({name:'PBKDF2',hash:'SHA-256',salt:enc.encode(salt),iterations:100000},k,256)); }
+const NAME_RE=/^[A-Za-z0-9_-]{3,14}$/, SESSION_MS=180*864e5;
+export class Accounts {
+  constructor(ctx){ this.ctx=ctx; }
+  async fetch(req){
+    const st=this.ctx.storage, path=new URL(req.url).pathname.slice(1);
+    let b={}; try{ b=await req.json()||{}; }catch(e){}
+    const out=(o,status=200)=>new Response(JSON.stringify(o),{status,headers:{'content-type':'application/json'}});
+    const no=(code,status=400)=>out({error:code},status);
+    const pub=u=>({name:u.name,wins:u.wins||0,losses:u.losses||0,played:u.played||0,since:u.created});
+    const keyOf=n=>'u:'+String(n||'').toLowerCase();
+    const session=async tok=>{
+      if(typeof tok!=='string'||tok.length<20||tok.length>100) return null;
+      const se=await st.get('s:'+await sha256(tok)); if(!se||se.exp<Date.now()) return null;
+      const u=await st.get(se.key); return u&&u.uid===se.uid?u:null;
+    };
+    const newSession=async u=>{ const tok=b64u(crypto.getRandomValues(new Uint8Array(32))); await st.put('s:'+await sha256(tok),{uid:u.uid,key:keyOf(u.name),exp:Date.now()+SESSION_MS}); return tok; };
+    const pwOk=pw=>typeof pw==='string'&&pw.length>=6&&pw.length<=100;
+    switch(path){
+      case 'register': {
+        const name=String(b.name||'').trim();
+        if(!NAME_RE.test(name)) return no('name');
+        if(!pwOk(b.password)) return no('pw');
+        if(await st.get(keyOf(name))) return no('taken',409);
+        const salt=b64u(crypto.getRandomValues(new Uint8Array(16)));
+        const u={uid:sid()+sid(),name,salt,hash:await pwHash(b.password,salt),created:Date.now(),wins:0,losses:0,played:0};
+        await st.put(keyOf(name),u);
+        return out({token:await newSession(u),user:pub(u)});
+      }
+      case 'login': {
+        const u=await st.get(keyOf(String(b.name||'').trim()));
+        if(!u||typeof b.password!=='string') return no('login',401);
+        if(u.lockUntil&&u.lockUntil>Date.now()) return no('locked',429);
+        if(await pwHash(b.password,u.salt)!==u.hash){
+          u.fails=(u.fails||0)+1; if(u.fails>=8){ u.lockUntil=Date.now()+5*60e3; u.fails=0; }
+          await st.put(keyOf(u.name),u); return no('login',401);
+        }
+        if(u.fails||u.lockUntil){ delete u.fails; delete u.lockUntil; await st.put(keyOf(u.name),u); }
+        return out({token:await newSession(u),user:pub(u)});
+      }
+      case 'me': { const u=await session(b.token); return u?out({user:pub(u)}):no('auth',401); }
+      case 'logout': { if(typeof b.token==='string') await st.delete('s:'+await sha256(b.token)); return out({ok:true}); }
+      case 'delete': {
+        const u=await session(b.token); if(!u) return no('auth',401);
+        if(typeof b.password!=='string'||await pwHash(b.password,u.salt)!==u.hash) return no('login',401);
+        await st.delete(keyOf(u.name)); await st.delete('s:'+await sha256(b.token));
+        return out({ok:true});
+      }
+      /* only reachable from game tables, never from the internet */
+      case 'verify': { const u=await session(b.token); return u?out({uid:u.uid,name:u.name}):no('auth',401); }
+      case 'result': {
+        const done={};
+        for(const r of (Array.isArray(b.results)?b.results:[])){
+          const u=await st.get(keyOf(r.name)); if(!u||u.uid!==r.uid||done[u.uid]) continue;
+          u.played=(u.played||0)+1; if(r.win) u.wins=(u.wins||0)+1; else u.losses=(u.losses||0)+1;
+          await st.put(keyOf(u.name),u); done[u.uid]=pub(u);
+        }
+        return out({users:done});
+      }
+    }
+    return no('nope',404);
+  }
+}
 
 /* ---------- public table list ---------- */
 export class Lobby {
@@ -97,8 +172,12 @@ export class Table {
   }
 
   async hello(ws,m){
-    const id=String(m.id||''), secret=String(m.secret||''), name=clean(m.name,14)||'Player';
+    const id=String(m.id||''), secret=String(m.secret||'');
+    let name=clean(m.name,14)||'Player';
     if(!ID_RE.test(id)||secret.length<8) return this.err(ws,'Bad hello.');
+    let account=null;
+    if(m.token){ try{ const r=await this.acctStub().fetch('https://acct/verify',{method:'POST',body:JSON.stringify({token:String(m.token)})}); if(r.ok) account=await r.json(); }catch(e){} }
+    if(account) name=account.name;
     const code=this.meta.code;
     if(m.create){
       const live=this.s&&this.humans().some(p=>this.online(p.id,ws));
@@ -118,6 +197,9 @@ export class Table {
       p={id,name,score:0,out:false}; s.players.push(p); s.v++;
     }
     this.sec[id]=secret; delete this.meta.away[id]; if(p.left){ delete p.left; }
+    this.meta.acct=this.meta.acct||{};
+    if(account){ this.meta.acct[id]={uid:account.uid,name:account.name}; p.name=account.name; p.acct=true; }
+    else if(s.phase==='lobby'){ delete this.meta.acct[id]; delete p.acct; }
     ws.serializeAttachment({id,lang:m.lang==='nl'?'nl':'en'});
     await this.save();
     this.sendTo(ws,{t:'chatlog',list:this.chat});
@@ -149,7 +231,9 @@ export class Table {
         if(!host||s.phase!=='lobby') return;
         if(s.players.length<2) err=L('You need at least 2 players.','Je hebt minstens 2 spelers nodig.');
         else if(notReady(s).length) err=L('Waiting for '+notReady(s).map(p=>p.name).join(', ')+' to ready up.','Wachten tot '+notReady(s).map(p=>p.name).join(', ')+' klaar is.');
-        else { const cn=cardsNeeded(s.rules,s.players.length); if(cn.need>cn.have) err=L('Not enough cards for this many players.','Niet genoeg kaarten voor zoveel spelers.'); else { s.stats={}; s.history=[]; s.dealer=Math.floor(Math.random()*s.players.length); s.v_round=1; startRound(s); } }
+        else { const cn=cardsNeeded(s.rules,s.players.length); if(cn.need>cn.have) err=L('Not enough cards for this many players.','Niet genoeg kaarten voor zoveel spelers.'); else { s.stats={}; s.history=[]; s.dealer=Math.floor(Math.random()*s.players.length); s.v_round=1; startRound(s);
+          /* win/loss only counts on Standard rules with at least 2 people at the table */
+          s.ranked=rankedRules(s.rules)&&this.humans().length>=2; this.meta.recorded=null; } }
         break; }
       case 'addBot': {
         if(!host||s.phase!=='lobby') return;
@@ -182,7 +266,25 @@ export class Table {
     if(err) return fail(err);
     s.v=(s.v||0)+1; s.lastActAt=Date.now();
     if(!this.s.players.some(p=>!p.bot)){ return this.close(); }
+    await this.record();
     await this.save(); this.broadcast(); await this.listing(); await this.schedule();
+  }
+
+  /* match over on Standard rules: 1st place is a win, everyone else a loss (leaving counts as a loss) */
+  acctStub(){ return this.env.ACCOUNTS.get(this.env.ACCOUNTS.idFromName('accounts')); }
+  async record(){
+    const s=this.s;
+    if(!s||s.phase!=='over'||!s.ranked||!s.result||this.meta.recorded===s.result.id) return;
+    this.meta.recorded=s.result.id;
+    const place=placings(s), acct=this.meta.acct||{}, results=[], byUid={};
+    for(const p of s.players){ const a=acct[p.id]; if(p.bot||!a) continue; results.push({uid:a.uid,name:a.name,win:place[p.id]===1}); byUid[a.uid]=p.id; }
+    if(!results.length) return;
+    try{
+      const r=await this.acctStub().fetch('https://acct/result',{method:'POST',body:JSON.stringify({results})});
+      const {users}=await r.json();
+      for(const [uid,user] of Object.entries(users||{})){ const pid=byUid[uid]; const win=results.find(x=>x.uid===uid).win;
+        for(const w of this.sockets()) if(this.att(w).id===pid) this.sendTo(w,{t:'record',win,user}); }
+    }catch(e){}
   }
 
   /* back to the lobby: players who left during the match lose their seat */
@@ -267,7 +369,7 @@ export class Table {
       if(!r) break;
       this.s.v=(this.s.v||0)+1; this.s.lastActAt=Date.now(); changed=true;
     }
-    if(changed){ await this.save(); this.broadcast(); await this.listing(); }
+    if(changed){ await this.record(); await this.save(); this.broadcast(); await this.listing(); }
     await this.schedule();
   }
   async schedule(){
