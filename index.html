@@ -693,8 +693,8 @@ const L=(en,nl)=>lang==='nl'?nl:en;
 const GAME=()=>L('Balls!','Balzakken');
 const VERSION='1.6.0';
 const DEVLOG=[
-  {v:'1.6.0',d:'11-11-2026',en:['Accounts: log in to keep a win/loss record','Online matches on Standard rules with at least 2 people count','16 achievements to unlock'],
-                            nl:['Accounts: log in om je winst en verlies bij te houden','Online potjes met standaardregels en minstens 2 mensen tellen mee','16 prestaties om te behalen']},
+  {v:'1.6.0',d:'11-11-2026',en:['Every online table now runs on the game server: no peeking at cards or faking moves','Accounts: log in to keep a win/loss record','Online matches on Standard rules with at least 2 people count','16 achievements to unlock'],
+                            nl:['Alle online tafels draaien nu op de spelserver: niet meer spieken of zetten vervalsen','Accounts: log in om je winst en verlies bij te houden','Online potjes met standaardregels en minstens 2 mensen tellen mee','16 prestaties om te behalen']},
   {v:'1.5.2',d:'10-11-2026',en:['When the host leaves, the next player in line becomes host','Players who leave during a match have their turns played for them'],
                             nl:['Als de host weggaat, wordt de volgende speler aan tafel host','Spelers die tijdens een potje weggaan, spelen automatisch verder']},
   {v:'1.5.1',d:'10-11-2026',en:['The next round starts after 5 seconds instead of 15','Online tables can now run on our own game server (test page: beta.html)'],
@@ -1204,7 +1204,13 @@ let localId=load('balls.pid'); if(!localId){ localId=newId(); store('balls.pid',
 /* ---- game server: the table runs on the server, so nobody can peek at hands or fake a move ----
    On when the page sets window.BALLS_SERVER (beta.html does) or after opening the page once with ?server=<url>
    (?server= with nothing after it switches it off again). Otherwise online tables use Firebase as before. */
-const SERVER_URL=(()=>{ let u=window.BALLS_SERVER||''; try{ const q=new URLSearchParams(location.search).get('server'); if(q!==null){ if(q) localStorage.setItem('balls.server',q); else localStorage.removeItem('balls.server'); } u=u||localStorage.getItem('balls.server')||''; }catch(e){} return u.replace(/\/+$/,''); })();
+const SERVER_URL=(()=>{
+  /* order: ?server= test override (kept for this browser), then the page's own setting, then the live site default */
+  let u='';
+  try{ const q=new URLSearchParams(location.search).get('server'); if(q!==null){ if(q) localStorage.setItem('balls.server',q); else localStorage.removeItem('balls.server'); } u=localStorage.getItem('balls.server')||''; }catch(e){}
+  u=u||window.BALLS_SERVER||(/(^|\.)pelgrim32\.github\.io$/.test(location.hostname)?'https://balls-server.pelgrim32.workers.dev':'');
+  return u.replace(/\/+$/,'');
+})();
 const serverMode=!!SERVER_URL;
 let sock=null, sockWant=false, sockTries=0, sockTimer=null, clockOff=0, srvChat=[], srvChatCb=null;
 let mySecret=load('balls.secret'); if(!mySecret){ mySecret=newId()+newId()+newId(); store('balls.secret',mySecret); }
