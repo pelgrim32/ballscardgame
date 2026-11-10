@@ -41,6 +41,8 @@ svg.spr{shape-rendering:crispEdges;display:block}
 .home.lobby{padding-bottom:24px}
 .logo{font-family:var(--px);font-weight:700;font-size:clamp(60px,18vw,112px);line-height:.9;color:var(--ink);text-shadow:4px 4px 0 var(--red),8px 8px 0 var(--panel-lo);letter-spacing:.02em;margin:18px 0 6px;animation:bob 3s ease-in-out infinite}
 @keyframes bob{0%,100%{transform:translateY(0) rotate(-3deg)}50%{transform:translateY(-6px) rotate(-1deg)}}
+.logo.nl{font-size:clamp(40px,12.5vw,92px)}
+.top .pill,.top .icon{white-space:nowrap}
 .tag{color:var(--ink-dim);text-align:center;max-width:32ch;margin:0;font-size:15px;line-height:1.35}
 .panel{background:var(--panel);border:3px solid var(--line);border-radius:10px;padding:14px;display:flex;flex-direction:column;gap:12px;width:100%;max-width:380px;box-sizing:border-box;box-shadow:0 5px 0 var(--panel-lo)}
 .panel h2{font-weight:700;font-size:20px;margin:0;letter-spacing:.04em;text-transform:uppercase}
@@ -80,6 +82,11 @@ details.rules ul{margin:4px 0 0;padding-left:18px;color:var(--ink-dim);line-heig
 .howto p{margin:2px 0;color:var(--ink-dim);line-height:1.45;font-size:15px}
 .howto ul{margin:0}
 .howto .credit{margin-top:12px;font-size:12px}
+.dl-entry h4{display:flex;align-items:baseline;gap:8px;text-transform:none;letter-spacing:.02em}
+.dl-entry h4 small{font-size:12px;font-weight:500;color:var(--ink-dim)}
+.dl-new{font-size:11px;font-weight:700;padding:1px 7px;border-radius:99px;background:var(--gold);color:#1e1600;text-transform:uppercase;letter-spacing:.05em}
+.version{margin:4px 0 0;font-size:12px;color:var(--ink-dim);text-align:center;width:100%}
+@media (min-width:760px){ .home details.devlog,.home .version{grid-column:1/-1;justify-self:center;max-width:776px} }
 details.rules b{color:var(--ink)}
 
 /* ---------- lobby ---------- */
@@ -654,10 +661,33 @@ html.compact:not(.skin-classic) .screen{padding-block:6px}
 <script>
 (() => {
 /* ================= ENGINE ================= */
+let lang=(()=>{ try{ const v=localStorage.getItem('balls.lang'); if(v==='nl'||v==='en') return v; }catch(e){} return /^nl\b/i.test(navigator.language||'')?'nl':'en'; })();
+const L=(en,nl)=>lang==='nl'?nl:en;
+const GAME=()=>L('Balls!','Balzakken');
+const VERSION='1.5.0';
+const DEVLOG=[
+  {v:'1.5.0',d:'10-11-2026',en:['Dutch translation: the game becomes Balzakken and you call Balzak','Bots have three difficulties: easy, normal and hard','Version number and this dev log','Bot names are new','High-contrast cards removed'],
+                            nl:['Nederlandse vertaling: het spel heet Balzakken en je roept Balzak','Bots hebben drie moeilijkheden: makkelijk, normaal en moeilijk','Versienummer en dit ontwikkellogboek','Nieuwe namen voor de bots','Kaarten met hoog contrast verwijderd']},
+  {v:'1.4.0',d:'10-11-2026',en:['Ready up before the host can start','Next round starts by itself after 15 seconds, even if the host is away','Bots play much better: they count cards and call Balls on the odds','Chat messages pop up over the player with a sound','The table fits any window size','Rewritten tutorial'],
+                            nl:['Eerst klaarmelden voordat de host kan starten','De volgende ronde start vanzelf na 15 seconden, ook als de host weg is','Bots spelen veel beter: ze tellen kaarten en roepen Balzak op basis van hun kansen','Chatberichten verschijnen boven de speler, met een geluidje','De tafel past in elk venster','Nieuwe uitleg']},
+  {v:'1.3.0',d:'10-11-2026',en:['Card sounds and jingles','Round countdown and placings (1st, 2nd…)','Chat and reactions','Info button with card values','Match summary and round-by-round table at the end','Everyone returns to the lobby 60 seconds after a match'],
+                            nl:['Kaartgeluiden en deuntjes','Aftellen per ronde en plaatsen (1e, 2e…)','Chat en reacties','Infoknop met kaartwaarden','Samenvatting en overzicht per ronde aan het eind','Iedereen gaat 60 seconden na een wedstrijd terug naar de lobby']},
+  {v:'1.2.0',d:'09-11-2026',en:['Custom table rules: cards, decks, jokers, scores, speed and turn timer','Public tables you can join from the home screen','Neon and Sketch themes'],
+                            nl:['Eigen tafelregels: kaarten, kaartspellen, jokers, scores, snelheid en beurttimer','Openbare tafels waar je vanaf het beginscherm aan meedoet','Thema\'s Neon en Schets']},
+  {v:'1.1.0',d:'09-11-2026',en:['Pixelated, Classic and Party themes','Cards fly when they are thrown and grabbed','You can see who grabbed what'],
+                            nl:['Thema\'s Pixel, Klassiek en Feest','Kaarten vliegen over tafel bij gooien en pakken','Je ziet wie wat pakt']},
+  {v:'1.0.0',d:'09-11-2026',en:['First playable version: the full rules, bots and online tables'],
+                            nl:['Eerste speelbare versie: alle regels, bots en online tafels']}
+];
+function devlogHTML(){
+  return DEVLOG.map((e,i)=>`<div class="dl-entry"><h4>v${e.v}${i===0?` <span class="dl-new">${L('new','nieuw')}</span>`:''} <small>${e.d}</small></h4><ul>${(lang==='nl'?e.nl:e.en).map(x=>`<li>${x}</li>`).join('')}</ul></div>`).join('');
+}
+function applyLang(){ document.documentElement.lang=lang; document.title=L('Balls! Card Game','Balzakken'); }
+applyLang();
 const SUITS = ['H','D','C','S'], RANKS = ['A','2','3','4','5','6','7','8','9','10','J','Q','K'];
 const SYM = {H:'♥',D:'♦',C:'♣',S:'♠'};
 const DEFAULT_RULES = { startHand:5, decks:1, jokers:4, maxPlayers:6, callMax:5, falsePenalty:25, elimAt:101, jokerVal:25, jackVal:-1,
-  resetA:{on:true,from:100,to:70}, resetB:{on:true,from:69,to:0}, speed:'normal', turnTimer:0, autoNext:true, pub:false };
+  resetA:{on:true,from:100,to:70}, resetB:{on:true,from:69,to:0}, speed:'normal', turnTimer:0, autoNext:true, botLevel:'normal', pub:false };
 const SPEED = { relaxed:{cd:5000,bot:1.5}, normal:{cd:3000,bot:1}, fast:{cd:2000,bot:.55} };
 function deriveRules(r){
   const x={...DEFAULT_RULES,...(r||{})}; const resets={};
@@ -681,13 +711,27 @@ const validThrow = cs => cs.length===1 || (cs.length>=2 && cs.every(c=>rank(c)==
 const aliveList = s => s.players.filter(p=>!p.out);
 function nextAlive(s,i){ const n=s.players.length; for(let k=1;k<=n;k++){const j=(i+k)%n; if(!s.players[j].out) return j;} return i; }
 const pname = (s,id) => (s.players.find(p=>p.id===id)||{}).name || 'Someone';
+function fmtLog(e){
+  if(!e) return {who:'',rest:''};
+  if(typeof e==='string') return {who:'',rest:e};
+  switch(e.t){
+    case 'start': return {who:'',rest:L(`Round ${e.r} · dealer: ${e.n}`,`Ronde ${e.r} · deler: ${e.n}`)};
+    case 'move': { const th=(e.c||[]).map(label).join(' ');
+      return {who:e.n,rest:L(` threw ${th} · ${e.src==='deck'?'drew from the deck':'took '+label(e.g)+' from the last throw'}`,` gooide ${th} · ${e.src==='deck'?'pakte van de stapel':'pakte '+label(e.g)+' van de laatste worp'}`)}; }
+    case 'shuffle': return {who:'',rest:L('Deck ran out, the table was reshuffled','Stapel op, er is opnieuw geschud')};
+    case 'balls': return {who:e.n,rest:e.f?L(' called false Balls',' riep valse Balzak'):L(' called Balls and won the round',' riep Balzak en won de ronde')};
+    case 'timeout': return {who:e.n,rest:L(' ran out of time',' had geen tijd meer')};
+  }
+  return {who:'',rest:''};
+}
+const logText=e=>{ const f=fmtLog(e); return f.who+f.rest; };
 function addLog(s,m){ s.log=[...(s.log||[]),m].slice(-4); }
 function placings(s){
   const alive=s.players.filter(p=>!p.out), m={};
   for(const p of alive) m[p.id]=1+alive.filter(q=>q.score<p.score).length;
   return m;
 }
-function ordinal(n){ const v=n%100; return n+(v>=11&&v<=13?'th':({1:'st',2:'nd',3:'rd'}[n%10]||'th')); }
+function ordinal(n){ if(lang==='nl') return n+'e'; const v=n%100; return n+(v>=11&&v<=13?'th':({1:'st',2:'nd',3:'rd'}[n%10]||'th')); }
 function rankBadge(s,id){ const r=placings(s)[id]; if(!r) return ''; return `<span class="rank r${Math.min(r,4)}">${ordinal(r)}</span>`; }
 const sortHand = h => h.slice().sort((a,b)=>val(a)-val(b) || rank(a).localeCompare(rank(b)) || a.localeCompare(b));
 
@@ -699,7 +743,7 @@ function startRound(s){
   s.avail=[deck.pop()]; s.pile=[]; s.known={}; s.deck=deck; s.thrown=[]; s.step='throw';
   s.turn=nextAlive(s,s.dealer); s.phase='play'; s.result=null; s.lastDraw=null;
   s.startAt=Date.now()+(SPEED[RULES.speed]||SPEED.normal).cd; s.turnAt=s.startAt;
-  addLog(s,`Round ${s.round} · dealer: ${s.players[s.dealer].name}`);
+  addLog(s,{t:'start',r:s.round,n:s.players[s.dealer].name});
 }
 function canCall(s,id){ return s.phase==='play' && roundLive(s) && s.step==='throw' && s.players[s.turn].id===id && handVal(s.hands[id])<=RULES.callMax && (s.turnsTaken[id]||0)>0; }
 const roundLive = s => !s.startAt || Date.now() >= s.startAt;
@@ -711,38 +755,38 @@ function isTurn(s,id){ return s.phase==='play' && roundLive(s) && s.players[s.tu
 
 function bump(s,id,k,n=1){ s.stats=s.stats||{}; const t=s.stats[id]=s.stats[id]||{}; t[k]=(t[k]||0)+n; }
 function doThrow(s,id,cards){
-  if(!isTurn(s,id)||s.step!=='throw') return 'It is not your throw.';
+  if(!isTurn(s,id)||s.step!=='throw') return L('It is not your throw.','Je bent nog niet aan de beurt om te gooien.');
   const h=s.hands[id];
-  if(!cards.length||!cards.every(c=>h.includes(c))) return 'Pick cards from your hand.';
-  if(!validThrow(cards)) return 'Throw one card, or two or more of the same rank.';
+  if(!cards.length||!cards.every(c=>h.includes(c))) return L('Pick cards from your hand.','Kies kaarten uit je hand.');
+  if(!validThrow(cards)) return L('Throw one card, or two or more of the same rank.','Gooi een kaart, of twee of meer van dezelfde waarde.');
   s.hands[id]=h.filter(c=>!cards.includes(c));
   if(s.known&&s.known[id]) s.known[id]=s.known[id].filter(c=>!cards.includes(c));
   bump(s,id,'played',cards.length);
   s.thrown=cards; s.step='draw';
 }
 function doDraw(s,id,src,card){
-  if(!isTurn(s,id)||s.step!=='draw') return 'Throw first, then grab a card.';
+  if(!isTurn(s,id)||s.step!=='draw') return L('Throw first, then grab a card.','Eerst gooien, dan een kaart pakken.');
   let c;
   if(src==='deck'){
     if(!s.deck.length){ s.deck=shuffle(s.pile); s.pile=[]; }
-    if(!s.deck.length) return 'The deck is empty. Take a card from the table.';
+    if(!s.deck.length) return L('The deck is empty. Take a card from the table.','De stapel is leeg. Pak een kaart van tafel.');
     c=s.deck.pop();
   } else {
-    if(!s.avail.includes(card)) return 'That card is no longer on the table.';
+    if(!s.avail.includes(card)) return L('That card is no longer on the table.','Die kaart ligt niet meer op tafel.');
     c=card; s.avail=s.avail.filter(x=>x!==card);
   }
   s.hands[id].push(c);
   if(src!=='deck'){ s.known=s.known||{}; (s.known[id]=s.known[id]||[]).push(c); }
   const thrownTxt=s.thrown.map(label).join(' ');
-  addLog(s,`${pname(s,id)} threw ${thrownTxt} · ${src==='deck'?'drew from the deck':'took '+label(c)+' from the last throw'}`);
+  addLog(s,{t:'move',n:pname(s,id),c:s.thrown.slice(),src,g:src==='deck'?null:c});
   s.pile.push(...s.avail); s.avail=s.thrown; s.thrown=[];
   s.turnsTaken[id]=(s.turnsTaken[id]||0)+1;
   s.lastDraw={id, src, open: src==='deck'?null:c, v:(s.v||0)+1};
-  if(!s.deck.length && s.pile.length){ s.deck=shuffle(s.pile); s.pile=[]; addLog(s,'Deck ran out — the table was reshuffled'); }
+  if(!s.deck.length && s.pile.length){ s.deck=shuffle(s.pile); s.pile=[]; addLog(s,{t:'shuffle'}); }
   s.step='throw'; s.turn=nextAlive(s,s.turn); s.turnAt=Date.now();
 }
 function doBalls(s,id){
-  if(!canCall(s,id)) return 'You can call Balls at the start of your turn with 5 or less, after holding it for a turn.';
+  if(!canCall(s,id)) return L('You can call Balls at the start of your turn with 5 or less, after holding it for a turn.','Je mag Balzak roepen aan het begin van je beurt met 5 of minder, nadat je een beurt hebt gespeeld.');
   const ci=s.players.findIndex(p=>p.id===id);
   const vals={}; for(const p of aliveList(s)) vals[p.id]=handVal(s.hands[p.id]);
   const cv=vals[id]; const beaters=[]; let j=ci;
@@ -769,7 +813,7 @@ function doBalls(s,id){
   if(winner!==null) s.dealer=s.players.findIndex(p=>p.id===winner);
   else { const al=s.players.map((p,i)=>i).filter(i=>!s.players[i].out); s.dealer=al[Math.floor(Math.random()*al.length)]; coin=true; }
   s.result={id:Math.random().toString(36).slice(2), round:s.round, caller:id, cv, falseB, winner, coin, beaters, rows};
-  addLog(s, falseB?`${pname(s,id)} called false Balls`:`${pname(s,id)} called Balls and won the round`);
+  addLog(s,{t:'balls',n:pname(s,id),f:falseB});
   bump(s,id,falseB?'falseB':'balls'); if(winner!==null) bump(s,winner,'wins');
   s.history=[...(s.history||[]),{round:s.round,caller:id,falseB,winner,rows:Object.fromEntries(rows.map(x=>[x.id,{gain:x.gain,after:x.after,out:x.notes.includes('Eliminated')}]))}];
   s.phase = aliveList(s).length<=1 ? 'over' : 'reveal';
@@ -797,47 +841,57 @@ function botThrow(h){
   for(const o of throwOptions(h)){ const sc=handVal(o)+o.length*.01; if(sc>bs){ bs=sc; best=o; } }
   return best;
 }
-/* cards this player cannot see anywhere: they are in the deck or in other players' hidden cards */
-function unseenPool(s,id){
-  const gone=new Set([...(s.hands[id]||[]),...(s.avail||[]),...(s.thrown||[]),...(s.pile||[])]);
-  for(const [pid,list] of Object.entries(s.known||{})) if(pid!==id) for(const c of list) gone.add(c);
+/* Three difficulties.
+   easy:   greedy, sometimes careless, no card counting, calls Balls on a hunch.
+   normal: plans its throw and grab, but only remembers the cards it can see right now.
+   hard:   plans further ahead, remembers every card thrown and taken, calls on estimated odds. */
+const BOT_LEVELS=['easy','normal','hard'];
+const lvlOf=(s,p)=>(p&&p.lvl)||deriveRules(s.rules).botLevel||'normal';
+/* cards this player cannot see: with counting, everything ever thrown or taken face up is remembered */
+function unseenPool(s,id,count=true){
+  const gone=new Set([...(s.hands[id]||[]),...(s.avail||[]),...(s.thrown||[])]);
+  if(count){ for(const c of (s.pile||[])) gone.add(c); for(const [pid,list] of Object.entries(s.known||{})) if(pid!==id) for(const c of list) gone.add(c); }
   return fullDeck().filter(c=>!gone.has(c));
 }
-const LOOKAHEAD=.9;
 /* how good a hand is to hold: its value, minus part of what can be thrown next turn */
-const holdScore=h=>handVal(h)-LOOKAHEAD*Math.max(0,bestThrowValue(h));
-function planTurn(s,id){
-  const h=s.hands[id], pool=unseenPool(s,id);
-  const avail=(s.step==='draw'?s.avail:s.avail)||[];
-  const deckEval=rest=>{ if(!pool.length) return 1e9; let t=0; for(const c of pool) t+=holdScore([...rest,c]); return t/pool.length; };
+const holdScore=(h,look)=>handVal(h)-look*Math.max(0,bestThrowValue(h));
+function planTurn(s,id,lvl='hard'){
+  const look=lvl==='hard'?.9:.5, h=s.hands[id], pool=unseenPool(s,id,lvl==='hard');
+  const avail=s.avail||[];
+  const deckEval=rest=>{ if(!pool.length) return 1e9; let t=0; for(const c of pool) t+=holdScore([...rest,c],look); return t/pool.length; };
   let best=null;
   const opts=s.step==='throw'?throwOptions(h):[null];
   for(const T of opts){
     const rest=T?h.filter(c=>!T.includes(c)):h.slice();
     const draws=[['deck',null,deckEval(rest)]];
-    for(const c of avail) draws.push(['avail',c,holdScore([...rest,c])]);
+    for(const c of avail) draws.push(['avail',c,holdScore([...rest,c],look)]);
     for(const d of draws){ const sc=d[2]-(T?T.length*.01:0); if(!best||sc<best.sc) best={sc,T,src:d[0],card:d[1]}; }
   }
   return best;
 }
-function botThrowFor(s,id){ const p=planTurn(s,id); return p&&p.T?p.T:botThrow(s.hands[id]); }
-function botDraw(s,id){
-  const p=planTurn(s,id);
+function botThrowFor(s,id,lvl='hard'){
+  const h=s.hands[id];
+  if(lvl==='easy') return Math.random()<.25 ? [h[Math.floor(Math.random()*h.length)]] : botThrow(h);
+  const p=planTurn(s,id,lvl); return p&&p.T?p.T:botThrow(h);
+}
+function botDraw(s,id,lvl='hard'){
   if(!s.deck.length&&!s.pile.length&&s.avail.length) return ['avail',s.avail.reduce((a,c)=>val(c)<val(a)?c:a)];
+  if(lvl==='easy'){ const low=s.avail.reduce((a,c)=>!a||val(c)<val(a)?c:a,null); return low&&val(low)<=2?['avail',low]:['deck']; }
+  const p=planTurn(s,id,lvl);
   return p&&p.src==='avail'?['avail',p.card]:['deck'];
 }
 /* chance that an opponent's hidden hand is at or below mine (normal approximation).
    Opponents keep low cards, so their unknown cards are assumed lower than the average unseen card. */
 function erf(x){ const t=1/(1+.3275911*Math.abs(x)); const y=1-(((((1.061405429*t-1.453152027)*t)+1.421413741)*t-.284496736)*t+.254829592)*t*Math.exp(-x*x); return x>=0?y:-y; }
-function winChance(s,id){
-  const mine=handVal(s.hands[id]), pool=unseenPool(s,id);
+function winChance(s,id,count=true){
+  const mine=handVal(s.hands[id]), pool=unseenPool(s,id,count);
   const vals=pool.map(val).sort((a,b)=>a-b);
   const low=vals.slice(0,Math.max(1,Math.ceil(vals.length*.55)));
   const mu=low.reduce((a,b)=>a+b,0)/low.length, sd=Math.sqrt(low.reduce((a,b)=>a+(b-mu)**2,0)/low.length)||1;
   let p=1;
   for(const o of s.players){
     if(o.out||o.id===id) continue;
-    const n=(s.hands[o.id]||[]).length, known=((s.known||{})[o.id]||[]).filter(c=>(s.hands[o.id]||[]).includes(c));
+    const hand=s.hands[o.id]||[], n=hand.length, known=count?((s.known||{})[o.id]||[]).filter(c=>hand.includes(c)):[];
     const u=n-known.length, m=handVal(known)+u*mu;
     if(u<=0){ if(m<=mine) return 0; continue; }
     const z=(mine+.5-m)/(sd*Math.sqrt(u));
@@ -846,8 +900,14 @@ function winChance(s,id){
   return p;
 }
 function botNerve(id){ let h=0; for(const ch of String(id)) h=(h*31+ch.charCodeAt(0))|0; return .55+(Math.abs(h)%21)/100; }
-const botWantsBalls=(s,id)=>canCall(s,id)&&(handVal(s.hands[id])<=-1||winChance(s,id)>=botNerve(id));
-const BOT_NAMES=['Bram','Fenna','Sem','Lotte','Daan','Noor','Jip','Tess','Luuk'];
+function botWantsBalls(s,id,lvl='hard'){
+  if(!canCall(s,id)) return false;
+  const hv=handVal(s.hands[id]);
+  if(lvl==='easy') return hv<=0||Math.random()<.45;
+  if(lvl==='normal') return hv<=-1||winChance(s,id,false)>=.5;
+  return hv<=-1||winChance(s,id,true)>=botNerve(id);
+}
+const BOT_NAMES=['Aiden','Priya','Mateo','Chloe','Kwame','Hannah','Ravi','Sofia','Malik','Grace','Yuki','Owen','Amara','Leo','Zara','Diego','Nora','Omar','Mei','Jamal'];
 
 /* ================= HELPERS ================= */
 const $ = (sel,root=document)=>root.querySelector(sel);
@@ -1079,7 +1139,7 @@ function outcomeJingle(st){
   SFX.lose();
 }
 let lastTurnChime=null;
-function splash(){ const d=document.createElement('div'); d.className='splash'; d.innerHTML='<span>BALLS!</span>'; document.body.appendChild(d); setTimeout(()=>d.remove(),1350); }
+function splash(){ const d=document.createElement('div'); d.className='splash'; d.innerHTML='<span>'+L('BALLS!','BALZAK!')+'</span>'; document.body.appendChild(d); setTimeout(()=>d.remove(),1350); }
 
 /* ================= CONTROLLER ================= */
 let S=null, mode=null, me=null, myName=load('balls.name')||'', sel=new Set();
@@ -1087,7 +1147,7 @@ let db=null, dbChecked=false, ref=null, unsub=null, busy=false, roomCode=null, l
 let skin=['pixel','classic','uno','neon','sketch'].includes(load('balls.skin'))?load('balls.skin'):'classic';
 function applySkin(){ const h=document.documentElement; h.classList.remove('skin-classic','skin-pixel','skin-uno','skin-neon','skin-sketch','ui-felt'); h.classList.add('skin-'+skin); if(skin==='classic'||skin==='uno') h.classList.add('ui-felt'); }
 applySkin();
-let hc=load('balls.hc')==='1';
+let hc=false;
 function applyHC(){ document.documentElement.classList.toggle('hc',hc && skin!=='uno'); }
 applyHC();
 let showSettings=false, showRules=false;
@@ -1114,7 +1174,7 @@ async function act(fn){
   sel.clear();
   if(mode==='local'){ const pv=S; S=s; afterState(pv); return; }
   const prev=S; busy=true; S=s; afterState(prev);
-  try{ await ref.set(s); }catch(e){ S=prev; render(); toast(e&&e.code==='invalid_argument'?'You can only watch this table. Ask the owner to invite you as an editor.':'That move did not reach the table. Check your connection and try again.'); }
+  try{ await ref.set(s); }catch(e){ S=prev; render(); toast(e&&e.code==='invalid_argument'?L('You can only watch this table. Ask the owner to invite you as an editor.','Je kunt deze tafel alleen bekijken. Vraag de eigenaar om je als bewerker uit te nodigen.'):L('That move did not reach the table. Check your connection and try again.','Die zet kwam niet aan bij de tafel. Controleer je verbinding en probeer het opnieuw.')); }
   busy=false;
 }
 
@@ -1196,11 +1256,11 @@ function animateMove(prev,cur,before){
     if(who===me){
       const el=after(`.hand [data-card="${card}"]`);
       fly(faceHTML, from, el, {delay:120, dur:520});
-      bubble((fromDeck?'Drew ':'Took ')+(card?label(card):'a card'), rectOf(after('.hand'),false), fromDeck?'bub-deck':'');
+      bubble((fromDeck?L('Drew ','Pakte '):L('Took ','Pakte '))+(card?label(card):L('a card','een kaart')), rectOf(after('.hand'),false), fromDeck?'bub-deck':'');
     } else {
       const chip=after(`.opp[data-pid="${who}"]`);
       fly(faceHTML, from, null, {delay:120, dur:560, toRect:rectOf(chip,false), fade:true});
-      bubble(fromDeck?'Drew from deck':'Took '+label(card), rectOf(chip,false), fromDeck?'bub-deck':'');
+      bubble(fromDeck?L('Drew from deck','Van de stapel'):L('Took ','Pakte ')+label(card), rectOf(chip,false), fromDeck?'bub-deck':'');
     }
   }
 }
@@ -1218,11 +1278,12 @@ function scheduleBots(){
     if(!S||S.phase!=='play') return;
     useRules(S);
     const c=S.players[S.turn]; if(!c||!c.bot) return;
+    const lvl=lvlOf(S,c);
     if(S.step==='throw'){
-      if(botWantsBalls(S,c.id)) act(s=>doBalls(s,c.id));
-      else { const h=S.hands[c.id]; const stuck=(S.turnsTaken[c.id]||0)>25 && Math.random()<.3; const t=stuck?[h[Math.floor(Math.random()*h.length)]]:botThrowFor(S,c.id); act(s=>doThrow(s,c.id,t)); }
+      if(botWantsBalls(S,c.id,lvl)) act(s=>doBalls(s,c.id));
+      else { const h=S.hands[c.id]; const stuck=(S.turnsTaken[c.id]||0)>25 && Math.random()<.3; const t=stuck?[h[Math.floor(Math.random()*h.length)]]:botThrowFor(S,c.id,lvl); act(s=>doThrow(s,c.id,t)); }
     } else {
-      const [src,card]=botDraw(S,c.id); act(s=>doDraw(s,c.id,src,card));
+      const [src,card]=botDraw(S,c.id,lvl); act(s=>doDraw(s,c.id,src,card));
     }
   }, (S.step==='throw'?1000:750)*((SPEED[RULES.speed]||SPEED.normal).bot) + Math.max(0,(S.startAt||0)-Date.now()));
 }
@@ -1238,7 +1299,7 @@ function scheduleTimeout(cur){
     act(s=>{
       if(s.step==='throw'){ const e=doThrow(s,id,botThrow(s.hands[id])); if(e) return e; }
       const e2=doDraw(s,id,'deck'); if(e2) return e2;
-      addLog(s,`${nm} ran out of time`);
+      addLog(s,{t:'timeout',n:nm});
     });
   }, Math.max(0,due));
 }
@@ -1249,9 +1310,9 @@ setInterval(()=>{ const el=document.getElementById('tt'); if(!el) return; const 
 function startLocal(){
   mode='local'; me='me'; seenHand.clear(); lastSplash=null; stopChat(); showInfo=false;
   const names=shuffle(BOT_NAMES).slice(0,botCount);
-  const players=[{id:'me',name:myName||'You',score:0,out:false}, ...names.map((n,i)=>({id:'b'+i,name:n,score:0,out:false,bot:true}))];
+  const players=[{id:'me',name:myName||L('You','Jij'),score:0,out:false}, ...names.map((n,i)=>({id:'b'+i,name:n,score:0,out:false,bot:true}))];
   const rules=localRules(); const cn=cardsNeeded(rules,players.length);
-  if(cn.need>cn.have){ mode=null; homeErr=`Not enough cards: ${players.length} players need ${cn.need}, the deck has ${cn.have}. Add a deck or deal fewer cards.`; render(); return; }
+  if(cn.need>cn.have){ mode=null; homeErr=L(`Not enough cards: ${players.length} players need ${cn.need}, the deck has ${cn.have}. Add a deck or deal fewer cards.`,`Niet genoeg kaarten: ${players.length} spelers hebben er ${cn.need} nodig, het spel heeft er ${cn.have}. Voeg een kaartspel toe of deel minder kaarten.`); render(); return; }
   S={v:1,phase:'play',host:'me',players,round:0,dealer:Math.floor(Math.random()*players.length),log:[],rules};
   useRules(S); S.v_round=0; startRound(S); afterState(null);
 }
@@ -1265,9 +1326,9 @@ function subscribe(code){
   startChat(code);
   render();
   clearTimeout(loadTimer);
-  loadTimer=setTimeout(()=>{ if(!S){ toast('The table is not answering yet. Still trying…'); } },10000);
+  loadTimer=setTimeout(()=>{ if(!S){ toast(L('The table is not answering yet. Still trying…','De tafel reageert nog niet. We blijven het proberen…')); } },10000);
   unsub=ref.onSnapshot(snap=>{
-    if(!snap.exists){ if(!snap.metadata.fromCache){ clearTimeout(loadTimer); leaveTable('That table no longer exists.'); } return; }
+    if(!snap.exists){ if(!snap.metadata.fromCache){ clearTimeout(loadTimer); leaveTable(L('That table no longer exists.','Die tafel bestaat niet meer.')); } return; }
     if(!snap.metadata.fromCache) clearTimeout(loadTimer);
     const d=snap.data();
     if(busy && S && (d.v||0)<S.v) return;
@@ -1276,38 +1337,38 @@ function subscribe(code){
     S=structuredClone(d);
     if(firstSnap && S.result) lastSplash=S.result.id;
     afterState(pv); firstSnap=false;
-  }, err=>{ clearTimeout(loadTimer); leaveTable('Lost the connection to the table. Rejoin with the code.'); });
+  }, err=>{ clearTimeout(loadTimer); leaveTable(L('Lost the connection to the table. Rejoin with the code.','Verbinding met de tafel verbroken. Doe opnieuw mee met de code.')); });
 }
 async function createRoom(){
   me=onlineId;
-  if(!myName.trim()){ homeErr='Enter your name first.'; render(); return; }
+  if(!myName.trim()){ homeErr=L('Enter your name first.','Vul eerst je naam in.'); render(); return; }
   let code=genCode();
   const r=db.doc('rooms/'+code);
   const state={v:1,phase:'lobby',host:me,code,players:[{id:me,name:myName.trim(),score:0,out:false}],round:0,dealer:0,log:[],v_round:0,created:Date.now(),rules:localRules()};
   try{ await r.set(state); subscribe(code); }
-  catch(e){ homeErr = e&&e.code==='invalid_argument' ? 'You can only view this page, so you cannot open a table. Ask the owner to invite you as an editor.' : 'Could not create the table. Try again.'; render(); }
+  catch(e){ homeErr = e&&e.code==='invalid_argument' ? L('You can only view this page, so you cannot open a table. Ask the owner to invite you as an editor.','Je kunt deze pagina alleen bekijken, dus je kunt geen tafel openen. Vraag de eigenaar om je als bewerker uit te nodigen.') : L('Could not create the table. Try again.','De tafel kon niet worden gemaakt. Probeer het opnieuw.'); render(); }
 }
 async function joinRoom(code){
   me=onlineId;
   code=(code||'').trim().toUpperCase();
-  if(!myName.trim()){ homeErr='Enter your name first.'; render(); return; }
-  if(!/^[A-Z]{4}$/.test(code)){ homeErr='A table code is 4 letters.'; render(); return; }
+  if(!myName.trim()){ homeErr=L('Enter your name first.','Vul eerst je naam in.'); render(); return; }
+  if(!/^[A-Z]{4}$/.test(code)){ homeErr=L('A table code is 4 letters.','Een tafelcode heeft 4 letters.'); render(); return; }
   const r=db.doc('rooms/'+code);
   try{
     let lease={acquired:false};
     for(let i=0;i<6 && !lease.acquired;i++){ lease=await r.acquire({holder:me,ttlMs:4000}); if(!lease.acquired) await new Promise(res=>setTimeout(res,600)); }
     const snap=await r.get();
-    if(!snap.exists){ homeErr=`No table with code ${code}.`; render(); return; }
+    if(!snap.exists){ homeErr=L(`No table with code ${code}.`,`Er is geen tafel met code ${code}.`); render(); return; }
     const d=structuredClone(snap.data());
     const already=d.players.some(p=>p.id===me);
     if(!already){
-      if(d.phase!=='lobby'){ homeErr='That game has already started.'; render(); return; }
-      const mx=deriveRules(d.rules).maxPlayers; if(d.players.length>=mx){ homeErr=`That table is full (${mx} players).`; render(); return; }
+      if(d.phase!=='lobby'){ homeErr=L('That game has already started.','Dat spel is al begonnen.'); render(); return; }
+      const mx=deriveRules(d.rules).maxPlayers; if(d.players.length>=mx){ homeErr=L(`That table is full (${mx} players).`,`Die tafel is vol (${mx} spelers).`); render(); return; }
       d.players.push({id:me,name:myName.trim(),score:0,out:false}); d.v=(d.v||0)+1;
       await r.set(d);
     }
     subscribe(code);
-  }catch(e){ homeErr = e&&e.code==='invalid_argument' ? 'You can only view this page, so you cannot join. Ask the owner to invite you as an editor.' : 'Could not join the table. Try again.'; render(); }
+  }catch(e){ homeErr = e&&e.code==='invalid_argument' ? L('You can only view this page, so you cannot join. Ask the owner to invite you as an editor.','Je kunt deze pagina alleen bekijken, dus je kunt niet meedoen. Vraag de eigenaar om je als bewerker uit te nodigen.') : L('Could not join the table. Try again.','Meedoen lukte niet. Probeer het opnieuw.'); render(); }
 }
 let lastAllReady=null;
 async function roomTxn(fn,r=ref){
@@ -1338,7 +1399,7 @@ function renderInner(){
   layer.innerHTML='';
   useRules(S);
   if(!mode){ renderHome(); if(showRules) renderRulesSheet(); return; }
-  if(mode==='online' && !S) { app.innerHTML=`<div class="screen home"><div class="logo">BALLS!</div><p class="tag">Sitting down at table ${esc(roomCode)}…</p><button class="btn ghost" id="b-leave">Back</button></div>`; $('#b-leave').onclick=()=>leaveTable(); return; }
+  if(mode==='online' && !S) { app.innerHTML=`<div class="screen home"><div class="logo ${lang}">${L('BALLS!','BALZAKKEN!')}</div><p class="tag">${L('Sitting down at table','Aanschuiven bij tafel')} ${esc(roomCode)}…</p><button class="btn ghost" id="b-leave">${L('Back','Terug')}</button></div>`; $('#b-leave').onclick=()=>leaveTable(); return; }
   if(S.phase==='lobby') return renderLobby();
   renderGame();
   fitCards();
@@ -1348,34 +1409,7 @@ function renderInner(){
   else if(showSettings) renderSettings();
 }
 
-function renderHome(){
-  const onlineOK = !!db;
-  app.innerHTML=`<div class="screen home">
-    <div class="logo">BALLS!</div>
-    <p class="tag">Get your hand to 5 or less, hold it a turn, and call it before anyone else does.</p>
-    <div class="panel">
-      <label class="lbl" for="in-name">Your name</label>
-      <input class="txt" id="in-name" maxlength="14" placeholder="e.g. Giel" value="${esc(myName)}" autocomplete="nickname">
-      ${homeErr?`<p class="err" role="alert">${esc(homeErr)}</p>`:''}
-    </div>
-    <div class="panel">
-      <h2>Play online</h2>
-      <div class="row"><button class="btn grow" id="b-create" ${onlineOK?'':'disabled'}>Create table</button></div>
-      <div class="row"><input class="txt grow" id="in-code" maxlength="4" placeholder="CODE" style="text-transform:uppercase;letter-spacing:.2em;flex:1;min-width:0" value="${esc(load('balls.room')||'')}" aria-label="Table code"><button class="btn alt" id="b-join" ${onlineOK?'':'disabled'}>Join</button></div>
-      ${onlineOK?'<p class="note">Share the 4-letter code with friends who have this page open.</p>':`<p class="note">${dbChecked?'Online tables are not available in this view. You can still play against bots.':'Connecting to online tables…'}</p>`}
-    </div>
-    <div class="panel">
-      <h2>Practice vs bots</h2>
-      <div class="row" style="justify-content:space-between"><span class="note">Bots</span><div class="seg" role="group" aria-label="Number of bots">${[1,2,3,4,5,6,7].map(n=>`<button data-bots="${n}" aria-pressed="${n===botCount}">${n}</button>`).join('')}</div></div>
-      <div class="row"><button class="btn ghost" id="b-rules">Table rules</button><button class="btn alt grow" id="b-local">Deal me in</button></div>
-      <p class="note">${rulesSummary(localRules())}</p>
-    </div>
-    ${onlineOK?`<div class="panel"><h2>Open tables</h2><div id="open-list">${openTablesHTML()}</div></div>`:''}
-    <div class="panel">
-      <h2>Look</h2>${settingsHTML()}
-    </div>
-    <details class="rules"><summary>How to play</summary><div class="howto">
-      <h4>Goal</h4>
+const HOWTO_EN=`      <h4>Goal</h4>
       <p>Keep your points low. Get your hand down to <b>5 or less</b> and call <b>Balls</b>. Players who reach <b>101</b> points are out, and the last one left wins.</p>
       <h4>Setup</h4>
       <ul><li>2 to 6 players (up to 8 with custom rules), one deck plus 4 jokers.</li>
@@ -1403,15 +1437,77 @@ function renderHome(){
       <li>Use the chat button for messages and reactions.</li></ul>
       <h4>Handy</h4>
       <ul><li>Tap the <b>i</b> on the table to see the card values and rules for that table.</li>
-      <li>The speaker button mutes sounds. Themes and high-contrast cards are in Settings.</li></ul>
-      <p class="credit">Pixel font “balatro” by localthunk, SIL Open Font License 1.1.</p>
+      <li>The speaker button mutes sounds. Themes and the language are in Settings.</li></ul>
+      <p class="credit">Pixel font “balatro” by localthunk, SIL Open Font License 1.1.</p>`;
+const HOWTO_NL=`<h4>Doel</h4>
+      <p>Houd je punten laag. Krijg je hand op <b>5 of minder</b> en roep <b>Balzak</b>. Wie <b>101</b> punten haalt ligt eruit, en de laatste speler die overblijft wint.</p>
+      <h4>Opzet</h4>
+      <ul><li>2 tot 6 spelers (tot 8 met eigen regels), een kaartspel met 4 jokers.</li>
+      <li>Iedereen krijgt <b>5 kaarten</b>. Er gaat een kaart open naast de stapel.</li>
+      <li>De speler na de deler begint, en daarna gaat het de tafel rond.</li></ul>
+      <h4>Kaartwaarden</h4>
+      <ul><li><b>Boer −1</b> · Aas 1 · 2 tot 10 de waarde op de kaart · Vrouw en Heer 10 · <b>Joker 25</b></li></ul>
+      <h4>Jouw beurt</h4>
+      <ul><li><b>Gooi</b> een kaart weg, of twee of meer kaarten van dezelfde waarde (een paar, drie dezelfde…).</li>
+      <li><b>Pak</b> daarna een kaart: de bovenste van de stapel, of een kaart die de speler voor je net heeft gegooid.</li>
+      <li>Is de stapel op, dan wordt alles behalve de laatste worp geschud tot een nieuwe stapel.</li></ul>
+      <h4>Balzak roepen</h4>
+      <ul><li>Heb je <b>5 of minder</b> in je hand, dan mag je aan het begin van je volgende beurt Balzak roepen, voordat je gooit. In je eerste beurt van een ronde mag het nog niet.</li>
+      <li>Iedereen laat zijn hand zien. Heb jij de laagste, dan win je de ronde: jij krijgt 0 punten en de rest telt zijn hand op bij zijn score.</li>
+      <li>Een negatieve hand (door boeren) haalt altijd punten van je score af, ook als je wint.</li></ul>
+      <h4>Valse Balzak</h4>
+      <ul><li>Heeft iemand evenveel of minder dan jij, dan is het <b>valse Balzak</b>. Je krijgt dan <b>+25</b> in plaats van je hand.</li>
+      <li>Had één speler evenveel of minder, dan wint die de ronde. Waren het er twee of meer, dan wint niemand, telt de rest zijn hand op en wordt de nieuwe deler door opgooien gekozen.</li></ul>
+      <h4>Score terugzetten</h4>
+      <ul><li>Precies op <b>100</b>: terug naar <b>70</b>. Precies op <b>69</b>: terug naar <b>0</b>.</li></ul>
+      <h4>Online spelen</h4>
+      <ul><li>Tik op <b>Tafel maken</b> en deel de code van 4 letters, of zet <b>Openbare tafel</b> aan zodat de tafel bij Open tafels staat.</li>
+      <li>Iedereen tikt op <b>Ik ben klaar</b>, daarna start de host. De host kan bots toevoegen en de tafelregels aanpassen.</li>
+      <li>Na elke ronde begint de volgende vanzelf na 15 seconden. De host kan dat uitzetten.</li>
+      <li>Met de chatknop stuur je berichten en reacties.</li></ul>
+      <h4>Handig</h4>
+      <ul><li>Tik op de <b>i</b> op tafel voor de kaartwaarden en regels van die tafel.</li>
+      <li>Met de luidsprekerknop zet je het geluid uit. Thema's en de taal vind je bij Instellingen.</li></ul>
+      <p class="credit">Pixellettertype “balatro” door localthunk, SIL Open Font License 1.1.</p>`;
+function renderHome(){
+  const onlineOK = !!db;
+  app.innerHTML=`<div class="screen home">
+    <div class="logo ${lang}">${L('BALLS!','BALZAKKEN!')}</div>
+    <p class="tag">${L('Get your hand to 5 or less, hold it a turn, and call it before anyone else does.','Krijg je hand op 5 of minder, houd hem een beurt vast en roep het voordat een ander het doet.')}</p>
+    <div class="panel">
+      <label class="lbl" for="in-name">${L('Your name','Jouw naam')}</label>
+      <input class="txt" id="in-name" maxlength="14" placeholder="${L('Your nickname here…','Jouw bijnaam hier…')}" value="${esc(myName)}" autocomplete="nickname">
+      ${homeErr?`<p class="err" role="alert">${esc(homeErr)}</p>`:''}
+    </div>
+    <div class="panel">
+      <h2>${L('Play online','Online spelen')}</h2>
+      <div class="row"><button class="btn grow" id="b-create" ${onlineOK?'':'disabled'}>${L('Create table','Tafel maken')}</button></div>
+      <div class="row"><input class="txt grow" id="in-code" maxlength="4" placeholder="CODE" style="text-transform:uppercase;letter-spacing:.2em;flex:1;min-width:0" value="${esc(load('balls.room')||'')}" aria-label="${L('Table code','Tafelcode')}"><button class="btn alt" id="b-join" ${onlineOK?'':'disabled'}>${L('Join','Meedoen')}</button></div>
+      ${onlineOK?`<p class="note">${L('Share the 4-letter code with friends who have this page open.','Deel de code van 4 letters met vrienden die deze pagina open hebben.')}</p>`:`<p class="note">${dbChecked?L('Online tables are not available in this view. You can still play against bots.','Online tafels werken niet in deze weergave. Je kunt wel tegen bots spelen.'):L('Connecting to online tables…','Verbinden met online tafels…')}</p>`}
+    </div>
+    <div class="panel">
+      <h2>${L('Practice vs bots','Oefenen tegen bots')}</h2>
+      <div class="row" style="justify-content:space-between"><span class="note">Bots</span><div class="seg" role="group" aria-label="${L('Number of bots','Aantal bots')}">${[1,2,3,4,5,6,7].map(n=>`<button data-bots="${n}" aria-pressed="${n===botCount}">${n}</button>`).join('')}</div></div>
+      <div class="row" style="justify-content:space-between"><span class="note">${L('Difficulty','Moeilijkheid')}</span><div class="seg" role="group" aria-label="${L('Bot difficulty','Moeilijkheid bots')}">${BOT_LEVELS.map(v=>`<button data-lvl="${v}" aria-pressed="${localRules().botLevel===v}" style="width:auto;padding:0 12px">${lvlName(v)}</button>`).join('')}</div></div>
+      <div class="row"><button class="btn ghost" id="b-rules">${L('Table rules','Tafelregels')}</button><button class="btn alt grow" id="b-local">${L('Deal me in','Delen maar')}</button></div>
+      <p class="note">${rulesSummary(localRules())}</p>
+    </div>
+    ${onlineOK?`<div class="panel"><h2>${L('Open tables','Open tafels')}</h2><div id="open-list">${openTablesHTML()}</div></div>`:''}
+    <div class="panel">
+      <h2>${L('Look','Uiterlijk')}</h2>${settingsHTML()}
+    </div>
+    <details class="rules"><summary>${L('How to play','Zo speel je')}</summary><div class="howto">
+      ${lang==='nl'?HOWTO_NL:HOWTO_EN}
     </div></details>
+    <details class="rules devlog"><summary>${L('What\'s new','Wat is er nieuw')} · v${VERSION}</summary><div class="howto">${devlogHTML()}</div></details>
+    <p class="version">${GAME()} · ${L('version','versie')} ${VERSION}</p>
   </div>`;
   const nameIn=$('#in-name');
   nameIn.oninput=()=>{ myName=nameIn.value.slice(0,14); store('balls.name',myName); };
   app.querySelectorAll('[data-bots]').forEach(b=>b.onclick=()=>{ botCount=+b.dataset.bots; store('balls.bots',String(botCount)); render(); });
   $('#b-local').onclick=()=>{ homeErr=''; startLocal(); };
   $('#b-rules').onclick=()=>{ showRules=true; render(); };
+  app.querySelectorAll('[data-lvl]').forEach(b=>b.onclick=()=>{ const r=localRules(); r.botLevel=b.dataset.lvl; saveLocalRules(r); render(); });
   wireOpenTables(app);
   wireSettings(app);
   if(onlineOK){
@@ -1426,32 +1522,32 @@ function renderLobby(){
   if(isHost){ const all=S.players.length>=2&&!nr.length; if(all&&lastAllReady===false) SFX.turn(); lastAllReady=all; }
   app.innerHTML=`<div class="screen home lobby">
     <div class="panel">
-      <p class="note" style="text-align:center">Table code</p>
+      <p class="note" style="text-align:center">${L('Table code','Tafelcode')}</p>
       <div class="code">${esc(S.code)}</div>
-      <p class="note" style="text-align:center">Friends open this page, enter the code, and tap Join.</p>
+      <p class="note" style="text-align:center">${L('Friends open this page, enter the code, and tap Join.','Vrienden openen deze pagina, vullen de code in en tikken op Meedoen.')}</p>
     </div>
     <div class="panel">
-      <h2>Players ${S.players.length}/${RULES.maxPlayers}</h2>
-      <ul class="plist">${S.players.map(p=>`<li><span class="av" style="background:${avColor(p.id)}">${esc((p.name||'?')[0].toUpperCase())}</span><span>${esc(p.name)}${p.id===me?' (you)':''}${p.bot?' · bot':''}${p.id===S.host?' · host':''}</span>${p.id===S.host?'':`<span class="rdy ${isReady(S,p)?'on':''}">${isReady(S,p)?'Ready':'Not ready'}</span>`}${isHost&&p.id!==me?`<button class="x" data-kick="${esc(p.id)}">Remove</button>`:''}</li>`).join('')}</ul>
-      ${isHost?`<div class="row"><button class="btn ghost grow" id="b-bot" ${S.players.length>=RULES.maxPlayers?'disabled':''}>Add bot</button><button class="btn grow" id="b-start" ${S.players.length<2||nr.length?'disabled':''}>Start game</button></div>
-      <p class="note">${S.players.length<2?'Add a bot or wait for a friend to join.':nr.length?`Waiting for ${nr.map(p=>esc(p.name)).join(', ')} to ready up. You can remove someone who left.`:'Everyone is ready.'}</p>`
-      :`<button class="btn ${meReady?'ghost':''}" id="b-ready" aria-pressed="${meReady}">${meReady?'Ready ✓ · tap to cancel':'Ready up'}</button>
-      <p class="note">${meReady?`Waiting for ${esc(pname(S,S.host))} to start…`:'Tap Ready up when you are set. The host can only start once everyone is ready.'}</p>`}
+      <h2>${L('Players','Spelers')} ${S.players.length}/${RULES.maxPlayers}</h2>
+      <ul class="plist">${S.players.map(p=>`<li><span class="av" style="background:${avColor(p.id)}">${esc((p.name||'?')[0].toUpperCase())}</span><span>${esc(p.name)}${youTag(p)}${p.bot?' · bot':''}${p.id===S.host?' · host':''}</span>${p.id===S.host?'':`<span class="rdy ${isReady(S,p)?'on':''}">${isReady(S,p)?L('Ready','Klaar'):L('Not ready','Niet klaar')}</span>`}${isHost&&p.id!==me?`<button class="x" data-kick="${esc(p.id)}">${L('Remove','Verwijderen')}</button>`:''}</li>`).join('')}</ul>
+      ${isHost?`<div class="row"><button class="btn ghost grow" id="b-bot" ${S.players.length>=RULES.maxPlayers?'disabled':''}>${L('Add bot','Bot toevoegen')}</button><button class="btn grow" id="b-start" ${S.players.length<2||nr.length?'disabled':''}>${L('Start game','Spel starten')}</button></div>
+      <p class="note">${S.players.length<2?L('Add a bot or wait for a friend to join.','Voeg een bot toe of wacht tot er een vriend meedoet.'):nr.length?L(`Waiting for ${nr.map(p=>esc(p.name)).join(', ')} to ready up. You can remove someone who left.`,`Wachten tot ${nr.map(p=>esc(p.name)).join(', ')} klaar is. Je kunt iemand die weg is verwijderen.`):L('Everyone is ready.','Iedereen is klaar.')}</p>`
+      :`<button class="btn ${meReady?'ghost':''}" id="b-ready" aria-pressed="${meReady}">${meReady?L('Ready ✓ · tap to cancel','Klaar ✓ · tik om te annuleren'):L('Ready up','Ik ben klaar')}</button>
+      <p class="note">${meReady?L(`Waiting for ${esc(pname(S,S.host))} to start…`,`Wachten tot ${esc(pname(S,S.host))} start…`):L('Tap Ready up when you are set. The host can only start once everyone is ready.','Tik op Ik ben klaar als je zover bent. De host kan pas starten als iedereen klaar is.')}</p>`}
     </div>
     <div class="panel">
-      <h2>Table rules</h2>
-      <p class="note">${isHost?'Changing a rule clears everyone\'s Ready.':'Only the host can change these.'}</p>
+      <h2>${L('Table rules','Tafelregels')}</h2>
+      <p class="note">${isHost?L('Changing a rule clears everyone\'s Ready.','Een regel aanpassen zet iedereen weer op niet klaar.'):L('Only the host can change these.','Alleen de host kan deze aanpassen.')}</p>
       ${rulesFormHTML(deriveRules(S.rules),{editable:isHost,online:true})}
     </div>
-    <div class="row lobby-actions"><button class="btn alt" id="b-chat">Chat<span class="chatbadge">${chatUnread||''}</span></button><button class="btn ghost" id="b-leave">Leave table</button></div>
+    <div class="row lobby-actions"><button class="btn alt" id="b-chat">Chat<span class="chatbadge">${chatUnread||''}</span></button><button class="btn ghost" id="b-leave">${L('Leave table','Tafel verlaten')}</button></div>
   </div>`;
   $('#b-leave').onclick=()=>leaveTable();
   $('#b-chat').onclick=openChat;
-  const rb=$('#b-ready'); if(rb) rb.onclick=()=>{ const want=!meReady; rb.disabled=true; roomTxn(d=>{ if(d.phase!=='lobby') return false; const p=d.players.find(x=>x.id===me); if(!p) return false; p.ready=want; }).catch(()=>{ toast('That did not reach the table. Try again.'); rb.disabled=false; }); };
-  if(isHost) wireRulesForm(app, deriveRules(S.rules), r=>{ saveLocalRules(r); act(s=>{ if(s.players.length>r.maxPlayers) return 'There are already more players than that.'; s.rules=r; s.players.forEach(p=>{ if(p.id!==s.host) p.ready=false; }); }); });
+  const rb=$('#b-ready'); if(rb) rb.onclick=()=>{ const want=!meReady; rb.disabled=true; roomTxn(d=>{ if(d.phase!=='lobby') return false; const p=d.players.find(x=>x.id===me); if(!p) return false; p.ready=want; }).catch(()=>{ toast(L('That did not reach the table. Try again.','Dat kwam niet aan bij de tafel. Probeer het opnieuw.')); rb.disabled=false; }); };
+  if(isHost) wireRulesForm(app, deriveRules(S.rules), r=>{ saveLocalRules(r); act(s=>{ if(s.players.length>r.maxPlayers) return L('There are already more players than that.','Er zitten al meer spelers aan tafel.'); s.rules=r; s.players.forEach(p=>{ if(p.id!==s.host) p.ready=false; }); }); });
   if(isHost){
     $('#b-bot').onclick=()=>act(s=>{ const used=new Set(s.players.map(p=>p.name)); const n=BOT_NAMES.find(x=>!used.has(x))||'Bot'; s.players.push({id:'b'+newId(),name:n,score:0,out:false,bot:true}); });
-    $('#b-start').onclick=()=>act(s=>{ if(s.players.length<2) return 'You need at least 2 players.'; const w=notReady(s); if(w.length) return 'Waiting for '+w.map(p=>p.name).join(', ')+' to ready up.'; const cn=cardsNeeded(s.rules,s.players.length); if(cn.need>cn.have) return `Not enough cards: ${s.players.length} players need ${cn.need}, the deck has ${cn.have}. Add a deck or deal fewer cards.`; s.dealer=Math.floor(Math.random()*s.players.length); s.v_round=1; startRound(s); });
+    $('#b-start').onclick=()=>act(s=>{ if(s.players.length<2) return L('You need at least 2 players.','Je hebt minstens 2 spelers nodig.'); const w=notReady(s); if(w.length) return L('Waiting for '+w.map(p=>p.name).join(', ')+' to ready up.','Wachten tot '+w.map(p=>p.name).join(', ')+' klaar is.'); const cn=cardsNeeded(s.rules,s.players.length); if(cn.need>cn.have) return L(`Not enough cards: ${s.players.length} players need ${cn.need}, the deck has ${cn.have}. Add a deck or deal fewer cards.`,`Niet genoeg kaarten: ${s.players.length} spelers hebben er ${cn.need} nodig, het spel heeft er ${cn.have}. Voeg een kaartspel toe of deel minder kaarten.`); s.dealer=Math.floor(Math.random()*s.players.length); s.v_round=1; startRound(s); });
     app.querySelectorAll('[data-kick]').forEach(b=>b.onclick=()=>act(s=>{ s.players=s.players.filter(p=>p.id!==b.dataset.kick); }));
   }
 }
@@ -1472,14 +1568,14 @@ function renderGame(){
   const drawStep=myTurn&&S.step==='draw';
 
   let status, sub='';
-  if(S.phase!=='play'){ status='Round over'; }
-  else if(!roundLive(S)){ status=`Round ${S.round} is about to start`; sub='Get ready…'; }
+  if(S.phase!=='play'){ status=L('Round over','Ronde voorbij'); }
+  else if(!roundLive(S)){ status=L(`Round ${S.round} is about to start`,`Ronde ${S.round} begint zo`); sub=L('Get ready…','Maak je klaar…'); }
   else if(myTurn && S.step==='throw'){
-    status='Your turn — throw';
-    sub = ballsOK ? `You hold ${hv}. Call Balls, or keep playing.` : (hv<=RULES.callMax ? `You hold ${hv}. You can call Balls next turn.` : 'Tap one card, or several of the same rank.');
+    status=L('Your turn — throw','Jouw beurt — gooi');
+    sub = ballsOK ? L(`You hold ${hv}. Call Balls, or keep playing.`,`Je hebt ${hv}. Roep Balzak, of speel door.`) : (hv<=RULES.callMax ? L(`You hold ${hv}. You can call Balls next turn.`,`Je hebt ${hv}. Volgende beurt mag je Balzak roepen.`) : L('Tap one card, or several of the same rank.','Tik op een kaart, of op meerdere van dezelfde waarde.'));
   }
-  else if(drawStep){ status='Now grab a card'; sub='Tap the deck or a glowing card on the table.'; }
-  else { status=`${esc(cur.name)} is ${S.step==='draw'?'grabbing a card':'playing'}…`; sub=''; }
+  else if(drawStep){ status=L('Now grab a card','Pak nu een kaart'); sub=L('Tap the deck or a glowing card on the table.','Tik op de stapel of op een oplichtende kaart op tafel.'); }
+  else { status=S.step==='draw'?L(`${esc(cur.name)} is grabbing a card…`,`${esc(cur.name)} pakt een kaart…`):L(`${esc(cur.name)} is playing…`,`${esc(cur.name)} is aan de beurt…`); sub=''; }
 
   const newCards=[];
   for(const c of hand){ if(!seenHand.has(c)) newCards.push(c); }
@@ -1491,47 +1587,47 @@ function renderGame(){
   if(myTurn && S.step==='throw'){ const k=S.round+':'+S.turnAt; if(k!==lastTurnChime){ lastTurnChime=k; SFX.turn(); } }
   app.innerHTML=`<div class="screen">
     <div class="top">
-      <span class="pill">Round ${S.round}</span>
+      <span class="pill">${L('Round','Ronde')} ${S.round}</span>
       <span class="grow"></span>
-      <button class="icon ic" id="b-sound" aria-label="${sfxOn?'Turn sound off':'Turn sound on'}" aria-pressed="${sfxOn}">${sfxOn?ICON.soundOn:ICON.soundOff}</button>
-      <button class="icon ic" id="b-chat" aria-label="Chat and reactions">${ICON.chat}<span class="chatbadge">${chatUnread||''}</span></button>
-      <button class="icon" id="b-scores">Scores</button>
-      <button class="icon ic" id="b-settings" aria-label="Settings">${ICON.settings}</button>
-      <button class="icon" id="b-quit">${mode==='online'?'Leave':'Quit'}</button>
+      <button class="icon ic" id="b-sound" aria-label="${sfxOn?L('Turn sound off','Geluid uit'):L('Turn sound on','Geluid aan')}" aria-pressed="${sfxOn}">${sfxOn?ICON.soundOn:ICON.soundOff}</button>
+      <button class="icon ic" id="b-chat" aria-label="${L('Chat and reactions','Chat en reacties')}">${ICON.chat}<span class="chatbadge">${chatUnread||''}</span></button>
+      <button class="icon" id="b-scores">${L('Scores','Stand')}</button>
+      <button class="icon ic" id="b-settings" aria-label="${L('Settings','Instellingen')}">${ICON.settings}</button>
+      <button class="icon" id="b-quit">${mode==='online'?L('Leave','Verlaten'):L('Quit','Stoppen')}</button>
     </div>
     <div class="opps">${order.map(p=>{
       const n=(S.hands[p.id]||[]).length;
       return `<div class="opp ${p.id===cur.id&&S.phase==='play'?'turn':''} ${p.out?'out':''}" data-pid="${esc(p.id)}">
         <span class="av" style="background:${avColor(p.id)}">${esc((p.name||'?')[0].toUpperCase())}</span>
         <span class="nm">${esc(p.name)}</span>
-        <div class="minifan" aria-label="${n} cards">${p.out?'':'<i></i>'.repeat(Math.min(n,5))+(n>5?`<em class="mfn">+${n-5}</em>`:'')}</div>
-        <span class="cnt">${p.out?'':n+' cards'}</span>
-        <span class="sc">${p.out?'out':p.score+' pts'}</span>${rankBadge(S,p.id)}
+        <div class="minifan" aria-label="${n} ${L('cards','kaarten')}">${p.out?'':'<i></i>'.repeat(Math.min(n,5))+(n>5?`<em class="mfn">+${n-5}</em>`:'')}</div>
+        <span class="cnt">${p.out?'':n+L(' cards',' kaarten')}</span>
+        <span class="sc">${p.out?L('out','uit'):p.score+L(' pts',' pnt')}</span>${rankBadge(S,p.id)}
       </div>`;}).join('')}</div>
-    <div class="feed" aria-live="polite">${(()=>{ const l=(S.log||[]).slice(-1)[0]||''; const i=l.indexOf(' '); return i>0?'<b>'+esc(l.slice(0,i))+'</b>'+esc(l.slice(i)):esc(l); })()}</div>
+    <div class="feed" aria-live="polite">${(()=>{ const f=fmtLog((S.log||[]).slice(-1)[0]); return (f.who?'<b>'+esc(f.who)+'</b>':'')+esc(f.rest); })()}</div>
     <div class="table">
-      <button class="infobtn" id="b-info" aria-label="Card values and table rules" aria-expanded="${showInfo}">i</button>
-      ${showInfo?`<div class="infopop" role="dialog" aria-label="Card values and table rules">${infoHTML()}</div>`:''}
+      <button class="infobtn" id="b-info" aria-label="${L('Card values and table rules','Kaartwaarden en tafelregels')}" aria-expanded="${showInfo}">i</button>
+      ${showInfo?`<div class="infopop" role="dialog" aria-label="${L('Card values and table rules','Kaartwaarden en tafelregels')}">${infoHTML()}</div>`:''}
       <div class="stackwrap">
-        <button class="deck ${drawStep?'':'locked'}" id="b-deck" aria-label="Draw from the deck" ${drawStep?'':'disabled'} style="border-radius:calc(var(--cw)*.09)">
+        <button class="deck ${drawStep?'':'locked'}" id="b-deck" aria-label="${L('Draw from the deck','Pak van de stapel')}" ${drawStep?'':'disabled'} style="border-radius:calc(var(--cw)*.09)">
           ${S.deck.length>2?cardHTML('back'):''}${S.deck.length>1?cardHTML('back'):''}${cardHTML('back',{cls:drawStep?'pick':''})}
         </button>
-        <span class="cap">Deck · ${S.deck.length}</span>
+        <span class="cap">${L('Deck','Stapel')} · ${S.deck.length}</span>
       </div>
       <div class="stackwrap">
-        <div class="availrow">${S.avail.map((c,i)=>cardHTML(c,{cls:(drawStep?'pick':''),attrs:`data-take="${c}" data-card="${c}" style="--rot:${rot(i)}deg" ${drawStep?'tabindex="0" role="button" aria-label="Take '+label(c)+'"':''}`})).join('')}</div>
-        <span class="cap">${S.round&&S.turnsTaken&&Object.values(S.turnsTaken).every(n=>!n)?'Face-up card':'Last throw'}</span>
+        <div class="availrow">${S.avail.map((c,i)=>cardHTML(c,{cls:(drawStep?'pick':''),attrs:`data-take="${c}" data-card="${c}" style="--rot:${rot(i)}deg" ${drawStep?'tabindex="0" role="button" aria-label="'+L('Take ','Pak ')+label(c)+'"':''}`})).join('')}</div>
+        <span class="cap">${S.round&&S.turnsTaken&&Object.values(S.turnsTaken).every(n=>!n)?L('Face-up card','Open kaart'):L('Last throw','Laatste worp')}</span>
       </div>
-      ${S.thrown&&S.thrown.length?`<div class="mythrow"><div class="cards">${S.thrown.map(c=>cardHTML(c,{attrs:`data-card="${c}"`})).join('')}</div><span class="cap" style="font-size:10px;color:var(--ink-dim)">${myTurn?'Your throw':esc(cur.name)+'’s throw'}</span></div>`:''}
+      ${S.thrown&&S.thrown.length?`<div class="mythrow"><div class="cards">${S.thrown.map(c=>cardHTML(c,{attrs:`data-card="${c}"`})).join('')}</div><span class="cap" style="font-size:10px;color:var(--ink-dim)">${myTurn?L('Your throw','Jouw worp'):L(esc(cur.name)+'’s throw','Worp van '+esc(cur.name))}</span></div>`:''}
     </div>
     <div class="status" aria-live="polite">${status} <span class="ttimer" id="tt" hidden></span><small>${sub}</small></div>
-    <div class="hand ${myTurn&&S.step==='throw'?'':'locked'}" role="group" aria-label="Your hand" style="--ov:${hand.length<=4?-.1:hand.length===5?-.2:hand.length===6?-.34:-.45};--t0:${-((Date.now()%3200)/1000).toFixed(3)}s">${spectator?'<p class="note">You are watching this game.</p>':hand.map((c,i)=>cardHTML(c,{cls:(sel.has(c)?'sel ':'')+(newCards.includes(c)&&seenHand.size>1?'new':''),attrs:`style="--i:${i}" data-c="${c}" data-card="${c}" tabindex="0" role="button" aria-pressed="${sel.has(c)}" aria-label="${label(c)}"`})).join('')}</div>
+    <div class="hand ${myTurn&&S.step==='throw'?'':'locked'}" role="group" aria-label="${L('Your hand','Jouw hand')}" style="--ov:${hand.length<=4?-.1:hand.length===5?-.2:hand.length===6?-.34:-.45};--t0:${-((Date.now()%3200)/1000).toFixed(3)}s">${spectator?`<p class="note">${L('You are watching this game.','Je kijkt mee met dit spel.')}</p>`:hand.map((c,i)=>cardHTML(c,{cls:(sel.has(c)?'sel ':'')+(newCards.includes(c)&&seenHand.size>1?'new':''),attrs:`style="--i:${i}" data-c="${c}" data-card="${c}" tabindex="0" role="button" aria-pressed="${sel.has(c)}" aria-label="${label(c)}"`})).join('')}</div>
     <div class="dock">
       <div class="total ${hv<=RULES.callMax?'low':''}"><b>${hv}</b><span>hand</span></div>
-      <div class="total"><b>${meP?meP.score:'–'}</b><span>score</span>${meP?rankBadge(S,me):''}</div>
+      <div class="total"><b>${meP?meP.score:'–'}</b><span>${L('score','score')}</span>${meP?rankBadge(S,me):''}</div>
       <span class="grow"></span>
-      <button class="btn" id="b-throw" ${throwOK?'':'disabled'}>Throw${selArr.length>1?' '+selArr.length:''}</button>
-      <button class="balls ${ballsOK?'ready':''}" id="b-balls" ${ballsOK?'':'disabled'}>BALLS!</button>
+      <button class="btn" id="b-throw" ${throwOK?'':'disabled'}>${L('Throw','Gooi')}${selArr.length>1?' '+selArr.length:''}</button>
+      <button class="balls ${ballsOK?'ready':''}" id="b-balls" ${ballsOK?'':'disabled'}>${L('BALLS!','BALZAK!')}</button>
     </div>
   </div>`;
 
@@ -1555,36 +1651,37 @@ function renderGame(){
 }
 
 const RULE_FIELDS=[
-  ['startHand','Starting cards',[3,4,5,6,7,8]],
-  ['decks','Decks',[1,2,3]],
-  ['jokers','Jokers per deck',[0,1,2,3,4]],
-  ['maxPlayers','Max players',[2,3,4,5,6,7,8],'online'],
-  ['callMax','Call Balls at',[3,4,5,6,7,8,10],null,v=>v+' or less'],
-  ['falsePenalty','False Balls penalty',[0,10,15,20,25,30,40,50],null,v=>'+'+v],
-  ['elimAt','Out at',[51,76,101,151,201],null,v=>v+' points'],
-  ['jokerVal','Joker value',[0,10,15,20,25,30,50]],
-  ['jackVal','Jack value',[-5,-2,-1,0,1,11]],
-  ['speed','Game speed',['relaxed','normal','fast'],null,v=>({relaxed:'Relaxed',normal:'Normal',fast:'Fast'})[v]],
-  ['turnTimer','Turn timer',[0,15,30,60],null,v=>v?v+' seconds':'Off'],
+  ['startHand',()=>L('Starting cards','Startkaarten'),[3,4,5,6,7,8]],
+  ['decks',()=>L('Decks','Kaartspellen'),[1,2,3]],
+  ['jokers',()=>L('Jokers per deck','Jokers per spel'),[0,1,2,3,4]],
+  ['maxPlayers',()=>L('Max players','Max. spelers'),[2,3,4,5,6,7,8],'online'],
+  ['callMax',()=>L('Call Balls at','Balzak roepen bij'),[3,4,5,6,7,8,10],null,v=>v+L(' or less',' of minder')],
+  ['falsePenalty',()=>L('False Balls penalty','Straf valse Balzak'),[0,10,15,20,25,30,40,50],null,v=>'+'+v],
+  ['elimAt',()=>L('Out at','Uit bij'),[51,76,101,151,201],null,v=>v+L(' points',' punten')],
+  ['jokerVal',()=>L('Joker value','Waarde joker'),[0,10,15,20,25,30,50]],
+  ['jackVal',()=>L('Jack value','Waarde boer'),[-5,-2,-1,0,1,11]],
+  ['botLevel',()=>L('Bot difficulty','Moeilijkheid bots'),BOT_LEVELS,null,v=>lvlName(v)],
+  ['speed',()=>L('Game speed','Spelsnelheid'),['relaxed','normal','fast'],null,v=>({relaxed:L('Relaxed','Rustig'),normal:L('Normal','Normaal'),fast:L('Fast','Snel')})[v]],
+  ['turnTimer',()=>L('Turn timer','Beurttimer'),[0,15,30,60],null,v=>v?v+L(' seconds',' seconden'):L('Off','Uit')],
 ];
 function rulesFormHTML(r,{editable=true,online=false}={}){
   const dis=editable?'':'disabled';
   const sel=([k,lab,opts,only,fmt])=>{ if(only==='online'&&!online) return '';
     const list=opts.includes(r[k])?opts:[...opts,r[k]];
-    return `<label for="ru-${k}">${lab}</label><select id="ru-${k}" data-rule="${k}" ${dis}>${list.map(v=>`<option value="${v}" ${v===r[k]?'selected':''}>${fmt?fmt(v):v}</option>`).join('')}</select>`; };
+    return `<label for="ru-${k}">${lab()}</label><select id="ru-${k}" data-rule="${k}" ${dis}>${list.map(v=>`<option value="${v}" ${v===r[k]?'selected':''}>${fmt?fmt(v):v}</option>`).join('')}</select>`; };
   const reset=(key,lab)=>`<label class="rreset"><input type="checkbox" id="ru-${key}-on" ${r[key].on?'checked':''} ${dis}> ${lab}</label>
-    <span class="rreset-n">exactly <input type="number" inputmode="numeric" id="ru-${key}-from" value="${r[key].from}" ${dis}> → <input type="number" inputmode="numeric" id="ru-${key}-to" value="${r[key].to}" ${dis}></span>`;
+    <span class="rreset-n">${L('exactly','precies')} <input type="number" inputmode="numeric" id="ru-${key}-from" value="${r[key].from}" ${dis}> → <input type="number" inputmode="numeric" id="ru-${key}-to" value="${r[key].to}" ${dis}></span>`;
   return `<div class="rgrid rules-form">
-    <label for="ru-autoNext">Next round</label><label class="switch"><input type="checkbox" id="ru-autoNext" ${r.autoNext?'checked':''} ${dis}> <span>${r.autoNext?'Starts by itself after 15s':'Host deals'}</span></label>
-    ${online?`<label for="ru-pub">Public table</label><label class="switch"><input type="checkbox" id="ru-pub" ${r.pub?'checked':''} ${dis}> <span>${r.pub?'Listed in Open tables':'Code only'}</span></label>`:''}
+    <label for="ru-autoNext">${L('Next round','Volgende ronde')}</label><label class="switch"><input type="checkbox" id="ru-autoNext" ${r.autoNext?'checked':''} ${dis}> <span>${r.autoNext?L('Starts by itself after 15s','Start vanzelf na 15 s'):L('Host deals','Host deelt')}</span></label>
+    ${online?`<label for="ru-pub">${L('Public table','Openbare tafel')}</label><label class="switch"><input type="checkbox" id="ru-pub" ${r.pub?'checked':''} ${dis}> <span>${r.pub?L('Listed in Open tables','Zichtbaar bij Open tafels'):L('Code only','Alleen met code')}</span></label>`:''}
     ${RULE_FIELDS.map(sel).join('')}
-    ${reset('resetA','Score reset 1')}
-    ${reset('resetB','Score reset 2')}
+    ${reset('resetA',L('Score reset 1','Score-reset 1'))}
+    ${reset('resetB',L('Score reset 2','Score-reset 2'))}
   </div>`;
 }
 function readRulesForm(root,base){
   const r={...base};
-  root.querySelectorAll('.rules-form [data-rule]').forEach(el=>{ const k=el.dataset.rule; r[k]= k==='speed'? el.value : +el.value; });
+  root.querySelectorAll('.rules-form [data-rule]').forEach(el=>{ const k=el.dataset.rule; r[k]= (k==='speed'||k==='botLevel')? el.value : +el.value; });
   for(const k of ['resetA','resetB']){ const on=root.querySelector(`#ru-${k}-on`), f=root.querySelector(`#ru-${k}-from`), t=root.querySelector(`#ru-${k}-to`);
     if(on) r[k]={on:on.checked, from:Math.round(+f.value||0), to:Math.round(+t.value||0)}; }
   const pub=root.querySelector('#ru-pub'); if(pub) r.pub=pub.checked;
@@ -1594,43 +1691,46 @@ function readRulesForm(root,base){
 function wireRulesForm(root,base,onChange){
   root.querySelectorAll('.rules-form select, .rules-form input').forEach(el=>el.onchange=()=>onChange(readRulesForm(root,base)));
 }
+const youTag=p=>p.id===me&&p.name!==L('You','Jij')?L(' (you)',' (jij)'):'';
+const lvlName=v=>({easy:L('Easy','Makkelijk'),normal:L('Normal','Normaal'),hard:L('Hard','Moeilijk')})[v]||v;
 function rulesSummary(r){
   const R=deriveRules(r), d=deriveRules(null), diff=[];
-  if(R.startHand!==d.startHand) diff.push(R.startHand+' cards');
-  if(R.decks!==d.decks) diff.push(R.decks+' decks');
-  if(R.jokers!==d.jokers) diff.push(R.jokers+' jokers/deck');
-  if(R.callMax!==d.callMax) diff.push('Balls at '+R.callMax);
-  if(R.falsePenalty!==d.falsePenalty) diff.push('false +'+R.falsePenalty);
-  if(R.elimAt!==d.elimAt) diff.push('out at '+R.elimAt);
+  if(R.startHand!==d.startHand) diff.push(R.startHand+L(' cards',' kaarten'));
+  if(R.decks!==d.decks) diff.push(R.decks+L(' decks',' spellen'));
+  if(R.jokers!==d.jokers) diff.push(R.jokers+L(' jokers/deck',' jokers/spel'));
+  if(R.callMax!==d.callMax) diff.push(L('Balls at ','Balzak bij ')+R.callMax);
+  if(R.falsePenalty!==d.falsePenalty) diff.push(L('false +','vals +')+R.falsePenalty);
+  if(R.elimAt!==d.elimAt) diff.push(L('out at ','uit bij ')+R.elimAt);
   if(R.jokerVal!==d.jokerVal) diff.push('joker '+R.jokerVal);
-  if(R.jackVal!==d.jackVal) diff.push('jack '+R.jackVal);
-  if(JSON.stringify(R.resets)!==JSON.stringify(d.resets)) diff.push('custom resets');
-  if(R.speed!=='normal') diff.push(R.speed);
-  if(R.turnTimer) diff.push(R.turnTimer+'s turns');
-  if(!R.autoNext) diff.push('host deals');
-  return diff.length?'Custom rules: '+diff.join(', '):'Standard rules';
+  if(R.jackVal!==d.jackVal) diff.push(L('jack ','boer ')+R.jackVal);
+  if(JSON.stringify(R.resets)!==JSON.stringify(d.resets)) diff.push(L('custom resets','eigen resets'));
+  if(R.speed!=='normal') diff.push(R.speed==='fast'?L('fast','snel'):L('relaxed','rustig'));
+  if(R.turnTimer) diff.push(R.turnTimer+L('s turns',' s per beurt'));
+  if(!R.autoNext) diff.push(L('host deals','host deelt'));
+  if(R.botLevel!=='normal') diff.push(L('bots: ','bots: ')+lvlName(R.botLevel).toLowerCase());
+  return diff.length?L('Custom rules: ','Eigen regels: ')+diff.join(', '):L('Standard rules','Standaardregels');
 }
 function renderRulesSheet(){
   const base=localRules();
-  layer.innerHTML=`<div class="overlay" id="ov"><div class="sheet" role="dialog" aria-label="Table rules">
-    <h3>Table rules</h3><p class="sub">Used for bot games and for tables you create.</p>
+  layer.innerHTML=`<div class="overlay" id="ov"><div class="sheet" role="dialog" aria-label="${L('Table rules','Tafelregels')}">
+    <h3>${L('Table rules','Tafelregels')}</h3><p class="sub">${L('Used for bot games and for tables you create.','Voor spellen tegen bots en tafels die je zelf maakt.')}</p>
     ${rulesFormHTML(deriveRules(base),{editable:true,online:false})}
-    <div class="row"><button class="btn ghost" id="b-rdef">Standard rules</button><button class="btn grow" id="b-close">Done</button></div></div></div>`;
+    <div class="row"><button class="btn ghost" id="b-rdef">${L('Standard rules','Standaardregels')}</button><button class="btn grow" id="b-close">${L('Done','Klaar')}</button></div></div></div>`;
   wireRulesForm(layer,base,r=>{ saveLocalRules(r); });
   $('#b-rdef').onclick=()=>{ store('balls.rules',undefined); render(); };
   $('#b-close').onclick=()=>{ showRules=false; render(); };
   $('#ov').onclick=e=>{ if(e.target.id==='ov'){ showRules=false; render(); } };
 }
 function openTablesHTML(){
-  if(!openTables.length) return '<p class="note">No open tables right now. Create one and switch on <b>Public table</b> in its rules.</p>';
-  return `<ul class="plist">${openTables.map(t=>`<li><span class="av" style="background:${avColor(t.code)}">${esc(t.code[0])}</span><span style="min-width:0;flex:1"><b>${esc(t.n||'Someone')}</b>’s table<br><span class="note">${t.p}/${t.m} players · ${esc(t.s||'Standard rules')}</span></span><button class="btn alt" data-joinpub="${esc(t.code)}" style="font-size:15px;padding:7px 12px">Join</button></li>`).join('')}</ul>`;
+  if(!openTables.length) return `<p class="note">${L('No open tables right now. Create one and switch on <b>Public table</b> in its rules.','Nu geen open tafels. Maak er een en zet <b>Openbare tafel</b> aan in de regels.')}</p>`;
+  return `<ul class="plist">${openTables.map(t=>`<li><span class="av" style="background:${avColor(t.code)}">${esc(t.code[0])}</span><span style="min-width:0;flex:1">${L(`<b>${esc(t.n||'Someone')}</b>’s table`,`Tafel van <b>${esc(t.n||'iemand')}</b>`)}<br><span class="note">${t.p}/${t.m} ${L('players','spelers')} · ${esc(t.s||L('Standard rules','Standaardregels'))}</span></span><button class="btn alt" data-joinpub="${esc(t.code)}" style="font-size:15px;padding:7px 12px">${L('Join','Meedoen')}</button></li>`).join('')}</ul>`;
 }
 function wireOpenTables(root){ root.querySelectorAll('[data-joinpub]').forEach(b=>b.onclick=()=>{ homeErr=''; joinRoom(b.dataset.joinpub); }); }
 function syncListing(){
   if(!lobbyApi||mode!=='online'||!S||S.host!==me) return;
   const R=deriveRules(S.rules);
   if(S.phase==='lobby' && R.pub){
-    const info={n:(S.players.find(p=>p.id===me)||{}).name||'Host', p:S.players.length, m:R.maxPlayers, s:rulesSummary(S.rules).replace('Custom rules: ','')};
+    const info={n:(S.players.find(p=>p.id===me)||{}).name||'Host', p:S.players.length, m:R.maxPlayers, s:rulesSummary(S.rules).replace(L('Custom rules: ','Eigen regels: '),'')};
     const sig=JSON.stringify(info);
     if(sig!==listingSig){ listingSig=sig; try{ lobbyApi.put(S.code,{...info,at:Date.now()}); }catch(e){} }
   } else if(listingSig){ listingSig=null; try{ lobbyApi.drop(S.code); }catch(e){} }
@@ -1660,21 +1760,21 @@ const ICON={
 let showInfo=false;
 function infoHTML(){
   const R=RULES, sg=v=>v<0?'−'+Math.abs(v):String(v);
-  return `<h4>Card values</h4>
-  <dl><dt>Ace</dt><dd>1</dd><dt>2 – 10</dt><dd>face value</dd><dt>Jack</dt><dd>${sg(R.jackVal)}</dd><dt>Queen, King</dt><dd>10</dd>${R.jokers?`<dt>Joker</dt><dd>${sg(R.jokerVal)}</dd>`:''}</dl>
-  <h4>This table</h4>
-  <dl><dt>Next round</dt><dd>${R.autoNext?'auto after 15s':'host deals'}</dd><dt>Call Balls at</dt><dd>${R.callMax} or less</dd><dt>False Balls</dt><dd>+${R.falsePenalty}</dd><dt>Out at</dt><dd>${R.elimAt}</dd>${Object.entries(R.resets).map(([a,b])=>`<dt>Exactly ${a}</dt><dd>back to ${b}</dd>`).join('')}<dt>Cards each</dt><dd>${R.startHand}</dd><dt>Decks</dt><dd>${R.decks}${R.jokers?` · ${R.jokers} jokers each`:' · no jokers'}</dd>${R.turnTimer?`<dt>Turn timer</dt><dd>${R.turnTimer}s</dd>`:''}</dl>`;
+  return `<h4>${L('Card values','Kaartwaarden')}</h4>
+  <dl><dt>${L('Ace','Aas')}</dt><dd>1</dd><dt>2 – 10</dt><dd>${L('face value','kaartwaarde')}</dd><dt>${L('Jack','Boer')}</dt><dd>${sg(R.jackVal)}</dd><dt>${L('Queen, King','Vrouw, Heer')}</dt><dd>10</dd>${R.jokers?`<dt>Joker</dt><dd>${sg(R.jokerVal)}</dd>`:''}</dl>
+  <h4>${L('This table','Deze tafel')}</h4>
+  <dl><dt>${L('Next round','Volgende ronde')}</dt><dd>${R.autoNext?L('auto after 15s','vanzelf na 15 s'):L('host deals','host deelt')}</dd><dt>${L('Call Balls at','Balzak roepen bij')}</dt><dd>${R.callMax}${L(' or less',' of minder')}</dd><dt>${L('False Balls','Valse Balzak')}</dt><dd>+${R.falsePenalty}</dd><dt>${L('Out at','Uit bij')}</dt><dd>${R.elimAt}</dd>${Object.entries(R.resets).map(([a,b])=>`<dt>${L('Exactly','Precies')} ${a}</dt><dd>${L('back to','terug naar')} ${b}</dd>`).join('')}<dt>Bots</dt><dd>${lvlName(R.botLevel)}</dd><dt>${L('Cards each','Kaarten per speler')}</dt><dd>${R.startHand}</dd><dt>${L('Decks','Kaartspellen')}</dt><dd>${R.decks}${R.jokers?` · ${R.jokers} ${L('jokers each','jokers per spel')}`:L(' · no jokers',' · geen jokers')}</dd>${R.turnTimer?`<dt>${L('Turn timer','Beurttimer')}</dt><dd>${R.turnTimer}s</dd>`:''}</dl>`;
 }
 function statsHTML(){
   const st=S.stats||{}, g=(id,k)=>(st[id]&&st[id][k])||0;
-  return `<div class="histwrap"><table class="hist stats"><thead><tr><th>Player</th><th>Rounds won</th><th>Cards played</th><th>Balls</th><th>False Balls</th></tr></thead><tbody>${S.players.map(p=>`<tr><th>${esc(p.name)}${p.id===me?' (you)':''}</th><td><b>${g(p.id,'wins')}</b></td><td>${g(p.id,'played')}</td><td>${g(p.id,'balls')}</td><td>${g(p.id,'falseB')}</td></tr>`).join('')}</tbody></table></div>`;
+  return `<div class="histwrap"><table class="hist stats"><thead><tr><th>${L('Player','Speler')}</th><th>${L('Rounds won','Rondes gewonnen')}</th><th>${L('Cards played','Kaarten gespeeld')}</th><th>${L('Balls','Balzak')}</th><th>${L('False Balls','Valse Balzak')}</th></tr></thead><tbody>${S.players.map(p=>`<tr><th>${esc(p.name)}${youTag(p)}</th><td><b>${g(p.id,'wins')}</b></td><td>${g(p.id,'played')}</td><td>${g(p.id,'balls')}</td><td>${g(p.id,'falseB')}</td></tr>`).join('')}</tbody></table></div>`;
 }
 function historyHTML(){
   const H=S.history||[]; if(!H.length) return '';
   const ps=S.players;
-  return `<div class="histwrap"><table class="hist"><thead><tr><th>Round</th>${ps.map(p=>`<th title="${esc(p.name)}">${esc(p.name)}</th>`).join('')}</tr></thead><tbody>${H.map(h=>`<tr><th>${h.round}</th>${ps.map(p=>{ const c=h.rows&&h.rows[p.id]; if(!c) return '<td class="na">out</td>';
+  return `<div class="histwrap"><table class="hist"><thead><tr><th>${L('Round','Ronde')}</th>${ps.map(p=>`<th title="${esc(p.name)}">${esc(p.name)}</th>`).join('')}</tr></thead><tbody>${H.map(h=>`<tr><th>${h.round}</th>${ps.map(p=>{ const c=h.rows&&h.rows[p.id]; if(!c) return `<td class="na">${L('out','uit')}</td>`;
       return `<td class="${h.winner===p.id?'w':''} ${c.out?'o':''}"><b>${c.after}</b><small>${c.gain>=0?'+':'−'}${Math.abs(c.gain)}${h.caller===p.id?(h.falseB?' ✗':' ★'):''}</small></td>`; }).join('')}</tr>`).join('')}</tbody></table></div>
-  <p class="note">Each cell is the score after that round, with the points gained below. ★ called Balls · ✗ called false Balls · gold won the round · red was eliminated.</p>`;
+  <p class="note">${L('Each cell is the score after that round, with the points gained below. ★ called Balls · ✗ called false Balls · gold won the round · red was eliminated.','Elk vak toont de score na die ronde, met de punten van die ronde eronder. ★ riep Balzak · ✗ riep valse Balzak · goud won de ronde · rood lag eruit.')}</p>`;
 }
 
 /* ---- chat + reactions ---- */
@@ -1687,8 +1787,8 @@ function seatRect(id){
 }
 function updateChatBadge(){ document.querySelectorAll('.chatbadge').forEach(b=>b.textContent=chatUnread||''); }
 function chatLogHTML(){
-  if(!chatLog.length) return '<p class="empty">No messages yet. Say hi, or tap a reaction.</p>';
-  return chatLog.map(m=>`<div class="${m.id===me?'me':''}"><b>${esc(m.n||'Someone')}:</b> ${esc(m.t)}</div>`).join('');
+  if(!chatLog.length) return `<p class="empty">${L('No messages yet. Say hi, or tap a reaction.','Nog geen berichten. Zeg hoi, of tik op een reactie.')}</p>`;
+  return chatLog.map(m=>`<div class="${m.id===me?'me':''}"><b>${esc(m.n||L('Someone','Iemand'))}:</b> ${esc(m.t)}</div>`).join('');
 }
 function refreshChatLog(){ const el=document.getElementById('chatlog'); if(el){ el.innerHTML=chatLogHTML(); el.scrollTop=el.scrollHeight; } }
 function onChatMsg(m,live){
@@ -1698,7 +1798,7 @@ function onChatMsg(m,live){
   chatLog.push({id:m.id,n:String(m.n||'').slice(0,14),t:text}); if(chatLog.length>60) chatLog.shift();
   if(open) refreshChatLog();
   if(live && m.id!==me){ SFX.chat(); if(!open){ chatUnread++; updateChatBadge(); }
-    bubble({n:m.n||'Someone',t:text.length>80?text.slice(0,80)+'…':text},seatRect(m.id),'say',3000); }
+    bubble({n:m.n||L('Someone','Iemand'),t:text.length>80?text.slice(0,80)+'…':text},seatRect(m.id),'say',3000); }
 }
 function startChat(code){
   stopChat(); chatStart=Date.now();
@@ -1711,8 +1811,8 @@ function stopChat(){ if(chatUnsub){ try{chatUnsub();}catch(e){} chatUnsub=null; 
 function sendChat(k,t){
   t=String(t||'').trim().slice(0,140); if(!t) return false;
   const now=Date.now(); if(now-chatLastSend<500) return false; chatLastSend=now;
-  const m={k,id:me,n:(myName||'Player').slice(0,14),t,at:now};
-  if(mode==='online'&&chatApi){ Promise.resolve().then(()=>chatApi.send(roomCode,m)).catch(()=>toast('That message did not send. Check your connection.')); }
+  const m={k,id:me,n:(myName||L('Player','Speler')).slice(0,14),t,at:now};
+  if(mode==='online'&&chatApi){ Promise.resolve().then(()=>chatApi.send(roomCode,m)).catch(()=>toast(L('That message did not send. Check your connection.','Dat bericht is niet verstuurd. Controleer je verbinding.'))); }
   else onChatMsg({...m,key:'local'+now},true);
   if(k==='r'&&!(mode==='online'&&chatApi)) {/* shown by onChatMsg */}
   return true;
@@ -1721,13 +1821,13 @@ function openChat(){
   if(document.getElementById('chatlayer')) return;
   chatUnread=0; updateChatBadge();
   const el=document.createElement('div'); el.id='chatlayer';
-  el.innerHTML=`<div class="sheet" role="dialog" aria-label="Chat and reactions">
+  el.innerHTML=`<div class="sheet" role="dialog" aria-label="${L('Chat and reactions','Chat en reacties')}">
     <h3>Chat</h3>
-    <div class="reacts" role="group" aria-label="Reactions">${REACTS.map(r=>`<button type="button" data-react="${r}" aria-label="React ${r}">${r}</button>`).join('')}</div>
+    <div class="reacts" role="group" aria-label="${L('Reactions','Reacties')}">${REACTS.map(r=>`<button type="button" data-react="${r}" aria-label="${L('React','Reageer')} ${r}">${r}</button>`).join('')}</div>
     <div class="chatlog" id="chatlog" aria-live="polite">${chatLogHTML()}</div>
-    ${mode==='online'?'':'<p class="note">You are playing bots, so only you see this. Chat reaches everyone at online tables.</p>'}
-    <form id="chatform" class="row" style="flex-wrap:nowrap"><input class="txt" id="chat-in" maxlength="140" placeholder="Say something" autocomplete="off" aria-label="Message" style="flex:1;min-width:0"><button class="btn" type="submit">Send</button></form>
-    <button class="btn ghost" id="b-chat-close" type="button">Close</button></div>`;
+    ${mode==='online'?'':`<p class="note">${L('You are playing bots, so only you see this. Chat reaches everyone at online tables.','Je speelt tegen bots, dus alleen jij ziet dit. Aan online tafels ziet iedereen de chat.')}</p>`}
+    <form id="chatform" class="row" style="flex-wrap:nowrap"><input class="txt" id="chat-in" maxlength="140" placeholder="${L('Say something','Zeg iets')}" autocomplete="off" aria-label="${L('Message','Bericht')}" style="flex:1;min-width:0"><button class="btn" type="submit">${L('Send','Versturen')}</button></form>
+    <button class="btn ghost" id="b-chat-close" type="button">${L('Close','Sluiten')}</button></div>`;
   document.body.appendChild(el);
   const log=el.querySelector('#chatlog'); log.scrollTop=log.scrollHeight;
   el.onclick=e=>{ if(e.target===el) closeChat(); };
@@ -1790,20 +1890,23 @@ let fitT=null;
 addEventListener('resize',()=>{ clearTimeout(fitT); fitT=setTimeout(()=>{ if(S&&mode&&S.phase!=='lobby') fitCards(); },80); });
 try{ document.fonts.ready.then(()=>{ if(S&&mode&&S.phase!=='lobby'){ fitKey=null; fitCards(); } }); }catch(e){}
 function settingsHTML(){
-  return `<div class="row" style="justify-content:space-between;align-items:flex-start"><span style="padding-top:8px">Theme</span><div class="seg wrap" role="group" aria-label="Theme"><button data-skin="pixel" aria-pressed="${skin==='pixel'}" style="width:auto;padding:0 12px">Pixelated</button><button data-skin="classic" aria-pressed="${skin==='classic'}" style="width:auto;padding:0 12px">Classic</button><button data-skin="uno" aria-pressed="${skin==='uno'}" style="width:auto;padding:0 12px">Party</button><button data-skin="neon" aria-pressed="${skin==='neon'}" style="width:auto;padding:0 12px">Neon</button><button data-skin="sketch" aria-pressed="${skin==='sketch'}" style="width:auto;padding:0 12px">Sketch</button></div></div>
-  ${skin==='uno'?'':`<div class="row" style="justify-content:space-between"><span>High contrast cards</span><div class="seg" role="group" aria-label="High contrast cards"><button data-hc="0" aria-pressed="${!hc}" style="width:auto;padding:0 12px">Off</button><button data-hc="1" aria-pressed="${hc}" style="width:auto;padding:0 12px">On</button></div></div>`}
-  <div class="row" style="justify-content:space-between"><span>Sounds</span><div class="seg" role="group" aria-label="Card sounds"><button data-sfx="0" aria-pressed="${!sfxOn}" style="width:auto;padding:0 12px">Off</button><button data-sfx="1" aria-pressed="${sfxOn}" style="width:auto;padding:0 12px">On</button></div></div>
+  const sb=(attr,v,on,txt)=>`<button ${attr}="${v}" aria-pressed="${on}" style="width:auto;padding:0 12px">${txt}</button>`;
+  return `<div class="row" style="justify-content:space-between"><span>${L('Language','Taal')}</span><div class="seg" role="group" aria-label="${L('Language','Taal')}">${sb('data-lang','en',lang==='en','English')}${sb('data-lang','nl',lang==='nl','Nederlands')}</div></div>
+  <div class="row" style="justify-content:space-between;align-items:flex-start"><span style="padding-top:8px">${L('Theme','Thema')}</span><div class="seg wrap" role="group" aria-label="${L('Theme','Thema')}">${sb('data-skin','pixel',skin==='pixel',L('Pixelated','Pixel'))}${sb('data-skin','classic',skin==='classic',L('Classic','Klassiek'))}${sb('data-skin','uno',skin==='uno',L('Party','Feest'))}${sb('data-skin','neon',skin==='neon','Neon')}${sb('data-skin','sketch',skin==='sketch',L('Sketch','Schets'))}</div></div>
+  <div class="row" style="justify-content:space-between"><span>${L('Sounds','Geluid')}</span><div class="seg" role="group" aria-label="${L('Sounds','Geluid')}">${sb('data-sfx','0',!sfxOn,L('Off','Uit'))}${sb('data-sfx','1',sfxOn,L('On','Aan'))}</div></div>
   <div class="row" style="justify-content:center;gap:6px">${['S-A','H-K','C-7','D-10'].map(c=>cardHTML(c,{cls:'small'})).join('')}</div>`;
 }
 function wireSettings(root){
+  root.querySelectorAll('[data-lang]').forEach(b=>b.onclick=()=>{ lang=b.dataset.lang; store('balls.lang',lang); applyLang();
+    if(mode==='local'&&S&&!myName){ const p=S.players.find(x=>x.id==='me'); if(p) p.name=L('You','Jij'); }
+    render(); });
   root.querySelectorAll('[data-skin]').forEach(b=>b.onclick=()=>{ skin=b.dataset.skin; store('balls.skin',skin); applySkin(); applyHC(); render(); });
   root.querySelectorAll('[data-sfx]').forEach(b=>b.onclick=()=>{ sfxOn=b.dataset.sfx==='1'; store('balls.sfx',sfxOn?'1':'0'); render(); if(sfxOn){ const a=audio(); if(a&&a.state==='suspended') a.resume().then(()=>SFX.play()).catch(()=>{}); else SFX.play(); } });
-  root.querySelectorAll('[data-hc]').forEach(b=>b.onclick=()=>{ hc=b.dataset.hc==='1'; store('balls.hc',hc?'1':'0'); applyHC(); render(); });
 }
 function renderSettings(){
-  layer.innerHTML=`<div class="overlay" id="ov"><div class="sheet" role="dialog" aria-label="Settings">
-    <h3>Settings</h3>${settingsHTML()}
-    <button class="btn" id="b-close">Back to the table</button></div></div>`;
+  layer.innerHTML=`<div class="overlay" id="ov"><div class="sheet" role="dialog" aria-label="${L('Settings','Instellingen')}">
+    <h3>${L('Settings','Instellingen')}</h3>${settingsHTML()}
+    <button class="btn" id="b-close">${L('Back to the table','Terug naar de tafel')}</button></div></div>`;
   wireSettings(layer);
   $('#b-close').onclick=()=>{ showSettings=false; render(); };
   $('#ov').onclick=e=>{ if(e.target.id==='ov'){ showSettings=false; render(); } };
@@ -1820,27 +1923,27 @@ function syncCountdown(){
   cdEl=document.createElement('div'); cdEl.className='countdown'; cdEl.setAttribute('role','status');
   const dealer=S.players[S.dealer]?S.players[S.dealer].name:'';
   const first=S.players[S.turn]?S.players[S.turn].name:'';
-  cdEl.innerHTML=`<div class="cd-box"><div class="cd-round">Round ${S.round}</div><div class="cd-num" aria-live="assertive"></div><div class="cd-sub">${esc(dealer)} deals · ${S.players[S.turn]&&S.players[S.turn].id===me?'you start':esc(first)+' starts'}</div></div>`;
+  cdEl.innerHTML=`<div class="cd-box"><div class="cd-round">${L('Round','Ronde')} ${S.round}</div><div class="cd-num" aria-live="assertive"></div><div class="cd-sub">${esc(dealer)} ${L('deals','deelt')} · ${S.players[S.turn]&&S.players[S.turn].id===me?L('you start','jij begint'):esc(first)+L(' starts',' begint')}</div></div>`;
   document.body.appendChild(cdEl);
   let last='';
   const tick=()=>{
     const left=(S.startAt||0)-Date.now();
-    const txt = left>0 ? String(Math.ceil(left/1000)) : 'Go!';
+    const txt = left>0 ? String(Math.ceil(left/1000)) : L('Go!','Start!');
     if(txt!==last){ const n=cdEl.querySelector('.cd-num'); n.textContent=txt; n.classList.remove('pop'); void n.offsetWidth; n.classList.add('pop'); last=txt; }
     if(left<=0){ clearInterval(cdTimer); render(); setTimeout(()=>{ if(cdEl&&cdRound===key){ cdEl.classList.add('out'); setTimeout(()=>{ if(cdEl&&cdRound===key){ cdEl.remove(); cdEl=null; } },300); } },650); }
   };
   tick(); cdTimer=setInterval(tick,100);
 }
 function scoreRows(){
-  return S.players.slice().sort((a,b)=>(a.out-b.out)||(a.score-b.score)).map(p=>`<div class="rrow"><span class="who">${p.out?'':rankBadge(S,p.id)} ${esc(p.name)}${p.id===me?' (you)':''}${p.out?'<span class="tagn bad">out</span>':''}</span><span class="gain"></span><span class="tot">${p.score}</span></div>`).join('');
+  return S.players.slice().sort((a,b)=>(a.out-b.out)||(a.score-b.score)).map(p=>`<div class="rrow"><span class="who">${p.out?'':rankBadge(S,p.id)} ${esc(p.name)}${youTag(p)}${p.out?`<span class="tagn bad">${L('out','uit')}</span>`:''}</span><span class="gain"></span><span class="tot">${p.score}</span></div>`).join('');
 }
 function renderScores(){
-  layer.innerHTML=`<div class="overlay" id="ov"><div class="sheet" role="dialog" aria-label="Scores">
-    <h3>Scores</h3><p class="sub">${mode==='online'?`Table ${esc(roomCode)}. `:''}Out at ${RULES.elimAt}.${Object.entries(RULES.resets).map(([a,b])=>` Exactly ${a} resets to ${b}.`).join('')}</p>
+  layer.innerHTML=`<div class="overlay" id="ov"><div class="sheet" role="dialog" aria-label="${L('Scores','Stand')}">
+    <h3>${L('Scores','Stand')}</h3><p class="sub">${mode==='online'?`${L('Table','Tafel')} ${esc(roomCode)}. `:''}${L('Out at','Uit bij')} ${RULES.elimAt}.${Object.entries(RULES.resets).map(([a,b])=>L(` Exactly ${a} resets to ${b}.`,` Precies ${a} wordt ${b}.`)).join('')}</p>
     <div class="scoretable">${scoreRows()}</div>
-    <h4 class="sec">This match so far</h4>${statsHTML()}
-    ${(S.log||[]).length?`<p class="sub" style="font-size:12px">${(S.log||[]).map(esc).join('<br>')}</p>`:''}
-    <button class="btn" id="b-close">Back to the table</button></div></div>`;
+    <h4 class="sec">${L('This match so far','Deze wedstrijd tot nu toe')}</h4>${statsHTML()}
+    ${(S.log||[]).length?`<p class="sub" style="font-size:12px">${(S.log||[]).map(e=>esc(logText(e))).join('<br>')}</p>`:''}
+    <button class="btn" id="b-close">${L('Back to the table','Terug naar de tafel')}</button></div></div>`;
   $('#b-close').onclick=()=>{ showScores=false; render(); };
   $('#ov').onclick=e=>{ if(e.target.id==='ov'){ showScores=false; render(); } };
 }
@@ -1852,28 +1955,28 @@ function renderResult(){
   const champ=aliveList(S)[0];
   const canNext = mode==='local' || S.host===me;
   const head = over
-    ? (champ&&champ.id===me ? `<h3><span class="hl">You</span> win the game!</h3>` : `<h3><span class="hl">${esc(champ?champ.name:'Nobody')}</span> wins the game!</h3>`)
+    ? (champ&&champ.id===me ? L(`<h3><span class="hl">You</span> win the game!</h3>`,`<h3><span class="hl">Jij</span> wint het spel!</h3>`) : L(`<h3><span class="hl">${esc(champ?champ.name:'Nobody')}</span> wins the game!</h3>`,`<h3><span class="hl">${esc(champ?champ.name:'Niemand')}</span> wint het spel!</h3>`))
     : r.falseB && r.winner===null
-      ? `<h3><span class="hl">False Balls!</span> ${esc(caller)} called with ${r.cv}</h3><p class="sub">${r.beaters.length} players tied or beat it, so nobody wins the round. ${esc(caller)} takes +${RULES.falsePenalty}. Coin flip: ${esc(S.players[S.dealer].name)} deals next.</p>`
+      ? `<h3><span class="hl">${L('False Balls!','Valse Balzak!')}</span> ${esc(caller)} ${L('called with','riep met')} ${r.cv}</h3><p class="sub">${L(`${r.beaters.length} players tied or beat it, so nobody wins the round. ${esc(caller)} takes +${RULES.falsePenalty}. Coin flip: ${esc(S.players[S.dealer].name)} deals next.`,`${r.beaters.length} spelers hadden evenveel of minder, dus niemand wint de ronde. ${esc(caller)} krijgt +${RULES.falsePenalty}. Opgooien: ${esc(S.players[S.dealer].name)} deelt de volgende ronde.`)}</p>`
     : r.falseB
-      ? `<h3><span class="hl">False Balls!</span> ${esc(caller)} called with ${r.cv}</h3><p class="sub">${esc(win)} tied or beat it and wins the round. ${esc(caller)} takes +${RULES.falsePenalty}.</p>`
-      : `<h3>${esc(caller)} called <span class="hl">Balls</span> with ${r.cv}</h3><p class="sub">Lowest hand. ${esc(caller)} deals next round.</p>`;
-  layer.innerHTML=`<div class="overlay"><div class="sheet" role="dialog" aria-label="Round result">
+      ? `<h3><span class="hl">${L('False Balls!','Valse Balzak!')}</span> ${esc(caller)} ${L('called with','riep met')} ${r.cv}</h3><p class="sub">${L(`${esc(win)} tied or beat it and wins the round. ${esc(caller)} takes +${RULES.falsePenalty}.`,`${esc(win)} had evenveel of minder en wint de ronde. ${esc(caller)} krijgt +${RULES.falsePenalty}.`)}</p>`
+      : L(`<h3>${esc(caller)} called <span class="hl">Balls</span> with ${r.cv}</h3><p class="sub">Lowest hand. ${esc(caller)} deals next round.</p>`,`<h3>${esc(caller)} riep <span class="hl">Balzak</span> met ${r.cv}</h3><p class="sub">Laagste hand. ${esc(caller)} deelt de volgende ronde.</p>`);
+  layer.innerHTML=`<div class="overlay"><div class="sheet" role="dialog" aria-label="${L('Round result','Uitslag van de ronde')}">
     ${head}
-    ${over?`<p class="sub">Final round: ${esc(caller)} called ${r.falseB?'false ':''}Balls with ${r.cv}.</p>`:''}
-    ${over?`<h4 class="sec">Match summary</h4>${statsHTML()}<h4 class="sec">Round by round</h4>${historyHTML()}`:''}
+    ${over?`<p class="sub">${L(`Final round: ${esc(caller)} called ${r.falseB?'false ':''}Balls with ${r.cv}.`,`Laatste ronde: ${esc(caller)} riep ${r.falseB?'valse ':''}Balzak met ${r.cv}.`)}</p>`:''}
+    ${over?`<h4 class="sec">${L('Match summary','Samenvatting')}</h4>${statsHTML()}<h4 class="sec">${L('Round by round','Per ronde')}</h4>${historyHTML()}`:''}
     <div class="res" ${over?'hidden':''}>${r.rows.map(x=>`<div class="rrow ${x.id===r.winner?'win':''}">
-      <span class="who">${rankBadge(S,x.id)} ${esc(pname(S,x.id))}${x.id===r.winner?'<span class="tagn">round win</span>':''}${x.notes.map(n=>`<span class="tagn ${n==='Eliminated'?'bad':''}">${esc(n)}</span>`).join('')}</span>
+      <span class="who">${rankBadge(S,x.id)} ${esc(pname(S,x.id))}${x.id===r.winner?`<span class="tagn">${L('round win','rondewinst')}</span>`:''}${x.notes.map(n=>`<span class="tagn ${n==='Eliminated'?'bad':''}">${esc(n==='Eliminated'?L('Eliminated','Uitgeschakeld'):n)}</span>`).join('')}</span>
       <span class="gain">${x.gain>=0?'+':''}${x.gain}</span>
       <span class="tot">${x.after}</span>
-      <div class="cardsline">${x.hand.map((c,i)=>cardHTML(c,{cls:'small'})).join('')}<span class="hv">${x.v} in hand</span></div>
+      <div class="cardsline">${x.hand.map((c,i)=>cardHTML(c,{cls:'small'})).join('')}<span class="hv">${x.v} ${L('in hand','in hand')}</span></div>
     </div>`).join('')}</div>
     ${(canNext||over)
-      ? `<button class="btn" id="b-next">${over?(mode==='local'?'New game':'Back to lobby'):'Deal next round'}</button>`
-      : (RULES.autoNext?'':`<p class="note">Waiting for ${esc(pname(S,S.host))} to deal…</p>`)}
-    ${!over&&RULES.autoNext?`<p class="note" style="text-align:center">Next round starts in <b id="next-left">${Math.max(0,Math.ceil(((S.revealAt||Date.now())+NEXT_ROUND_MS-Date.now())/1000))}</b>s</p>`:''}
-    ${over?`<p class="note" style="text-align:center">Back to the ${mode==='online'?'lobby':'menu'} in <b id="over-left">${Math.max(0,Math.ceil(((S.overAt||Date.now())+LOBBY_AFTER_MS-Date.now())/1000))}</b>s</p>`:''}
-    ${over?`<button class="btn ghost" id="b-home">${mode==='online'?'Leave table':'Main menu'}</button>`:''}
+      ? `<button class="btn" id="b-next">${over?(mode==='local'?L('New game','Nieuw spel'):L('Back to lobby','Terug naar de lobby')):L('Deal next round','Volgende ronde delen')}</button>`
+      : (RULES.autoNext?'':`<p class="note">${L(`Waiting for ${esc(pname(S,S.host))} to deal…`,`Wachten tot ${esc(pname(S,S.host))} deelt…`)}</p>`)}
+    ${!over&&RULES.autoNext?`<p class="note" style="text-align:center">${L('Next round starts in','Volgende ronde begint over')} <b id="next-left">${Math.max(0,Math.ceil(((S.revealAt||Date.now())+NEXT_ROUND_MS-Date.now())/1000))}</b>s</p>`:''}
+    ${over?`<p class="note" style="text-align:center">${mode==='online'?L('Back to the lobby in','Terug naar de lobby over'):L('Back to the menu in','Terug naar het menu over')} <b id="over-left">${Math.max(0,Math.ceil(((S.overAt||Date.now())+LOBBY_AFTER_MS-Date.now())/1000))}</b>s</p>`:''}
+    ${over?`<button class="btn ghost" id="b-home">${mode==='online'?L('Leave table','Tafel verlaten'):L('Main menu','Hoofdmenu')}</button>`:''}
   </div></div>`;
   const nx=$('#b-next');
   if(nx) nx.onclick=()=>{
