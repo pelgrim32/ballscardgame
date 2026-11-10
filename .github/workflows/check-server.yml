@@ -1,0 +1,21 @@
+name: Check game server
+# Run from the Actions tab to see whether the game server answers (health, table list, accounts, a table connection).
+on:
+  workflow_dispatch:
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: Check
+        run: |
+          S=https://balls-server.pelgrim32.workers.dev
+          echo "--- health";    curl -sS -i "$S/api/health" | head -20
+          echo "--- lobby";     curl -sS -i "$S/api/lobby" | head -20
+          echo "--- account";   curl -sS -i -X POST -H 'content-type: application/json' -d '{"token":"x"}' "$S/api/account/me" | head -20
+          echo "--- preflight"; curl -sS -i -X OPTIONS -H 'Origin: https://pelgrim32.github.io' "$S/api/account/me" | head -12
+          echo "--- table"
+          node server/check-table.mjs
