@@ -41,6 +41,7 @@ jobs:
           apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
           accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
           workingDirectory: server
+          wranglerVersion: "4.160.0"
           command: deploy
       - name: Find the server address
         id: url
