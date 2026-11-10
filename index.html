@@ -74,15 +74,6 @@ input.txt::placeholder{color:rgba(255,255,255,.35)}
 .seg button[aria-pressed="true"]{background:var(--red);border-color:var(--red);box-shadow:0 3px 0 var(--red-lo)}
 .note{font-size:14px;color:var(--ink-dim);margin:0;line-height:1.35}
 .err{color:var(--red);font-size:14px;margin:0}
-.stiles{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px}
-.stile{background:var(--panel-lo);border-radius:10px;padding:10px 6px;text-align:center;display:flex;flex-direction:column;gap:2px}
-.stile b{font-size:26px;font-weight:700;line-height:1.05;font-variant-numeric:tabular-nums}
-.stile b small{font-size:14px;color:var(--ink-dim);font-weight:600}
-.stile span{font-size:12px;color:var(--ink-dim);line-height:1.2}
-.ui-felt .stile{background:rgba(0,0,0,.3)}
-.skin-classic .stile{background:var(--slate);border:3px solid #6b4a2c}
-.skin-classic .stile b{font-family:"Cabin Sketch",cursive;color:#f3f1e8}
-.skin-sketch .stile{background:#fff;border:2px solid var(--line);border-radius:var(--wob)}
 .acctrow{display:flex;align-items:center;justify-content:space-between;gap:10px}
 .acctrow>div{display:flex;flex-direction:column;gap:2px;min-width:0}
 .acctrow b{font-size:20px;overflow:hidden;text-overflow:ellipsis}
@@ -91,7 +82,7 @@ input.txt::placeholder{color:rgba(255,255,255,.35)}
 .note.ranked.on{color:var(--ink)}
 .devname{color:var(--gold);text-shadow:0 0 8px rgba(245,195,75,.45),0 1px 0 rgba(0,0,0,.5);font-weight:700}
 .devtag{display:inline-block;margin-left:5px;padding:1px 5px 0;border-radius:4px;background:linear-gradient(180deg,#ffe08a,#e0a526);color:#3a2600;font-size:10px;font-weight:800;letter-spacing:.08em;line-height:1.4;vertical-align:middle;text-shadow:none;box-shadow:0 1px 0 rgba(0,0,0,.35)}
-.skin-sketch .devname,.skin-drop .devname{color:#a87300;text-shadow:none}
+.skin-sketch .devname{color:#a87300;text-shadow:none}
 .vf{display:inline-block;margin-left:5px;font-size:12px;font-weight:700;color:var(--green)}
 .achh{margin:8px 0 2px;font-size:18px}.achh small{font-size:14px;color:var(--ink-dim);font-weight:600}
 .achlist{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:6px}
@@ -302,6 +293,11 @@ html .deck .card{position:absolute;left:0;top:0}
 .skin-sketch .card.small .tl{left:0;right:0;top:12%;font-size:11px}
 .skin-sketch .card.small .tl i{font-size:11px}
 .skin-sketch .card.small.joker .tl{font-size:5.5px}
+
+
+@keyframes deal2{from{transform:translateY(-40px) rotate(-8deg) scale(.8);opacity:0}}
+
+
 
 
 /* ---------- Neon theme: synthwave arcade ---------- */
@@ -600,6 +596,17 @@ table.hist{border-collapse:collapse;width:100%;font-size:14px;font-variant-numer
 .hist td.w b{color:var(--gold)}
 .hist td.o b{color:var(--red)}
 .hist td.na{color:var(--ink-dim)}
+.stiles{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px}
+.stile{background:var(--panel-lo);border-radius:10px;padding:10px 6px;text-align:center;display:flex;flex-direction:column;gap:2px}
+.stile b{font-size:26px;font-weight:700;line-height:1.05;font-variant-numeric:tabular-nums}
+.stile b small{font-size:14px;color:var(--ink-dim);font-weight:600}
+.stile span{font-size:12px;color:var(--ink-dim);line-height:1.2}
+.allstats summary{cursor:pointer;font-size:14px;color:var(--ink-dim);padding:4px 0}
+.allstats[open] summary{margin-bottom:6px}
+.ui-felt .stile{background:rgba(0,0,0,.3)}
+.skin-classic .stile{background:var(--slate);border:3px solid #6b4a2c}
+.skin-classic .stile b{font-family:"Cabin Sketch",cursive;color:#f3f1e8}
+.skin-sketch .stile{background:#fff;border:2px solid var(--line);border-radius:var(--wob)}
 .hist.stats th:first-child{color:var(--ink);font-weight:700;max-width:110px;overflow:hidden;text-overflow:ellipsis}
 .hist.stats thead th{white-space:normal;line-height:1.15;vertical-align:bottom;font-size:12px;max-width:70px}
 h4.sec{margin:4px 0 -4px;font-size:15px;font-weight:700;color:var(--ink-dim);text-transform:uppercase;letter-spacing:.06em}
@@ -694,8 +701,10 @@ html.compact:not(.skin-classic) .screen{padding-block:6px}
 let lang=(()=>{ try{ const v=localStorage.getItem('balls.lang'); if(v==='nl'||v==='en') return v; }catch(e){} return /^nl\b/i.test(navigator.language||'')?'nl':'en'; })();
 const L=(en,nl)=>lang==='nl'?nl:en;
 const GAME=()=>L('Balls!','Balzakken');
-const VERSION='1.6.0';
+const VERSION='1.6.1';
 const DEVLOG=[
+  {v:'1.6.1',d:'11-11-2026',en:['The match summary shows your own stats first, everyone else\'s are one tap away'],
+                            nl:['De samenvatting laat eerst je eigen statistieken zien, die van de rest staan een tik verder']},
   {v:'1.6.0',d:'11-11-2026',en:['Every online table now runs on the game server: no peeking at cards or faking moves','Accounts: log in to keep a win/loss record','Online matches on Standard rules with at least 2 people count','26 achievements to unlock'],
                             nl:['Alle online tafels draaien nu op de spelserver: niet meer spieken of zetten vervalsen','Accounts: log in om je winst en verlies bij te houden','Online potjes met standaardregels en minstens 2 mensen tellen mee','26 prestaties om te behalen']},
   {v:'1.5.2',d:'10-11-2026',en:['When the host leaves, the next player in line becomes host','Players who leave during a match have their turns played for them'],
@@ -2031,9 +2040,26 @@ function infoHTML(){
   <h4>${L('This table','Deze tafel')}</h4>
   <dl><dt>${L('Next round','Volgende ronde')}</dt><dd>${R.autoNext?L('auto after 5s','vanzelf na 5 s'):L('host deals','host deelt')}</dd><dt>${L('Call Balls at','Balzak roepen bij')}</dt><dd>${R.callMax}${L(' or less',' of minder')}</dd><dt>${L('False Balls','Valse Balzak')}</dt><dd>+${R.falsePenalty}</dd><dt>${L('Out at','Uit bij')}</dt><dd>${R.elimAt}</dd>${Object.entries(R.resets).map(([a,b])=>`<dt>${L('Exactly','Precies')} ${a}</dt><dd>${L('back to','terug naar')} ${b}</dd>`).join('')}<dt>Bots</dt><dd>${lvlName(R.botLevel)}</dd><dt>${L('Cards each','Kaarten per speler')}</dt><dd>${R.startHand}</dd><dt>${L('Decks','Kaartspellen')}</dt><dd>${R.decks}${R.jokers?` · ${R.jokers} ${L('jokers each','jokers per spel')}`:L(' · no jokers',' · geen jokers')}</dd>${R.turnTimer?`<dt>${L('Turn timer','Beurttimer')}</dt><dd>${R.turnTimer}s</dd>`:''}</dl>`;
 }
-function statsHTML(){
+function statsTableHTML(){
   const st=S.stats||{}, g=(id,k)=>(st[id]&&st[id][k])||0;
   return `<div class="histwrap"><table class="hist stats"><thead><tr><th>${L('Player','Speler')}</th><th>${L('Rounds won','Rondes gewonnen')}</th><th>${L('Cards played','Kaarten gespeeld')}</th><th>${L('Balls','Balzak')}</th><th>${L('False Balls','Valse Balzak')}</th></tr></thead><tbody>${S.players.map(p=>`<tr><th>${esc(p.name)}${youTag(p)}</th><td><b>${g(p.id,'wins')}</b></td><td>${g(p.id,'played')}</td><td>${g(p.id,'balls')}</td><td>${g(p.id,'falseB')}</td></tr>`).join('')}</tbody></table></div>`;
+}
+/* your own match in a few big numbers; everyone else's stats stay one tap away */
+function statsHTML(){
+  const meP=S.players.find(p=>p.id===me);
+  if(!meP) return statsTableHTML();
+  const st=(S.stats||{})[me]||{}, n=k=>st[k]||0, rounds=(S.history||[]).length;
+  const place=(placings(S)[me]);
+  const tile=(v,lab)=>`<div class="stile"><b>${v}</b><span>${lab}</span></div>`;
+  return `<div class="stiles">
+    ${tile(meP.out?L('out','uit'):(place?ordinal(place):'–'),L('Place','Plaats'))}
+    ${tile(meP.score,L('Score','Score'))}
+    ${tile(`${n('wins')}<small>/${rounds}</small>`,L('Rounds won','Rondes gewonnen'))}
+    ${tile(n('played'),L('Cards played','Kaarten gespeeld'))}
+    ${tile(n('balls'),L('Balls called','Balzak geroepen'))}
+    ${tile(n('falseB'),L('False Balls','Valse Balzak'))}
+  </div>
+  <details class="allstats"><summary>${L('All players','Alle spelers')}</summary>${statsTableHTML()}</details>`;
 }
 function historyHTML(){
   const H=S.history||[]; if(!H.length) return '';
