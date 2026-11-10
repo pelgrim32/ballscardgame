@@ -14,6 +14,12 @@ const clean=(t,n)=>String(t==null?'':t).replace(/[\u0000-\u001f]/g,'').trim().sl
 
 export default {
   async fetch(req, env){
+    try{ return await route(req, env); }
+    catch(e){ console.error('request failed', e && e.stack || e); return json({error:'server error', detail:String(e && e.message || e)},500); }
+  }
+};
+async function route(req, env){
+  {
     const url=new URL(req.url);
     if(req.method==='OPTIONS') return new Response(null,{status:204,headers:CORS});
     const acc=url.pathname.match(/^\/api\/account\/(register|login|me|logout|delete|password)$/);
@@ -35,7 +41,7 @@ export default {
     if(url.pathname==='/'||url.pathname==='/api/health') return json({ok:true,game:'balls',version:VERSION});
     return json({error:'not found'},404);
   }
-};
+}
 
 /* ---------- accounts: name + scrambled password + win/loss record, nothing else ----------
    Passwords are stored as PBKDF2 hashes; sessions as hashes of a random token. */
