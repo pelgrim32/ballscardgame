@@ -16,7 +16,7 @@ export default {
   async fetch(req, env){
     const url=new URL(req.url);
     if(req.method==='OPTIONS') return new Response(null,{status:204,headers:CORS});
-    const acc=url.pathname.match(/^\/api\/account\/(register|login|me|logout|delete)$/);
+    const acc=url.pathname.match(/^\/api\/account\/(register|login|me|logout|delete|password)$/);
     if(acc){
       if(req.method!=='POST') return json({error:'Use POST.'},405);
       const r=await env.ACCOUNTS.get(env.ACCOUNTS.idFromName('accounts')).fetch('https://acct/'+acc[1],{method:'POST',body:await req.text()});
@@ -44,15 +44,22 @@ const b64u=buf=>{ let t=''; for(const x of new Uint8Array(buf)) t+=String.fromCh
 const sha256=async t=>b64u(await crypto.subtle.digest('SHA-256',enc.encode(t)));
 async function pwHash(pw,salt){ const k=await crypto.subtle.importKey('raw',enc.encode(pw),'PBKDF2',false,['deriveBits']); return b64u(await crypto.subtle.deriveBits({name:'PBKDF2',hash:'SHA-256',salt:enc.encode(salt),iterations:100000},k,256)); }
 const NAME_RE=/^[A-Za-z0-9_-]{3,14}$/, SESSION_MS=180*864e5;
-const ACH_IDS=['a69','a69x2','a100','w1','w2','w3','w4','j1','j2','j4','t3j','t4','tj','tjj','t2j','flawless'];
+const ACH_IDS=['a69','a69x2','a100','w0','w1','w2','w3','w4','j1','j2','j4','t3j','t4','tj','tjj','t2j','flawless',
+  'win1','balls1','quick','gotcha','oops','comeback','survivor','m10','m50'];
+/* the developer account: created on first use, before anyone else can take the name.
+   Only a salted PBKDF2 hash is stored here, never the password. */
+const DEV_SEED={key:'u:giel',user:{uid:'dev-giel',name:'giel',role:'dev',salt:'WMnmARFKRbPGMB2dE04Iow',hash:'GN8sQ2k_-Ob78uQMogpmAI-cnRdmCvIRjBog4zz956g',wins:0,losses:0,played:0}};
+/* compare two hashes without leaking how many characters matched */
+const same=(a,b)=>{ if(typeof a!=='string'||typeof b!=='string'||a.length!==b.length) return false; let x=0; for(let i=0;i<a.length;i++) x|=a.charCodeAt(i)^b.charCodeAt(i); return x===0; };
 export class Accounts {
   constructor(ctx){ this.ctx=ctx; }
   async fetch(req){
     const st=this.ctx.storage, path=new URL(req.url).pathname.slice(1);
+    if(!this.seeded){ this.seeded=true; if(!(await st.get(DEV_SEED.key))) await st.put(DEV_SEED.key,{...DEV_SEED.user,created:Date.now()}); }
     let b={}; try{ b=await req.json()||{}; }catch(e){}
     const out=(o,status=200)=>new Response(JSON.stringify(o),{status,headers:{'content-type':'application/json'}});
     const no=(code,status=400)=>out({error:code},status);
-    const pub=u=>({name:u.name,wins:u.wins||0,losses:u.losses||0,played:u.played||0,since:u.created,ach:u.ach||{}});
+    const pub=u=>({name:u.name,wins:u.wins||0,losses:u.losses||0,played:u.played||0,since:u.created,ach:u.ach||{},dev:u.role==='dev'});
     const keyOf=n=>'u:'+String(n||'').toLowerCase();
     const session=async tok=>{
       if(typeof tok!=='string'||tok.length<20||tok.length>100) return null;
@@ -60,7 +67,8 @@ export class Accounts {
       const u=await st.get(se.key); return u&&u.uid===se.uid?u:null;
     };
     const newSession=async u=>{ const tok=b64u(crypto.getRandomValues(new Uint8Array(32))); await st.put('s:'+await sha256(tok),{uid:u.uid,key:keyOf(u.name),exp:Date.now()+SESSION_MS}); return tok; };
-    const pwOk=pw=>typeof pw==='string'&&pw.length>=6&&pw.length<=100;
+    const pwOk=pw=>typeof pw==='string'&&pw.length>=8&&pw.length<=100;
+    const pwRight=async(u,pw)=>typeof pw==='string'&&same(await pwHash(pw,u.salt),u.hash);
     switch(path){
       case 'register': {
         const name=String(b.name||'').trim();
@@ -76,7 +84,7 @@ export class Accounts {
         const u=await st.get(keyOf(String(b.name||'').trim()));
         if(!u||typeof b.password!=='string') return no('login',401);
         if(u.lockUntil&&u.lockUntil>Date.now()) return no('locked',429);
-        if(await pwHash(b.password,u.salt)!==u.hash){
+        if(!await pwRight(u,b.password)){
           u.fails=(u.fails||0)+1; if(u.fails>=8){ u.lockUntil=Date.now()+5*60e3; u.fails=0; }
           await st.put(keyOf(u.name),u); return no('login',401);
         }
@@ -87,12 +95,19 @@ export class Accounts {
       case 'logout': { if(typeof b.token==='string') await st.delete('s:'+await sha256(b.token)); return out({ok:true}); }
       case 'delete': {
         const u=await session(b.token); if(!u) return no('auth',401);
-        if(typeof b.password!=='string'||await pwHash(b.password,u.salt)!==u.hash) return no('login',401);
+        if(!await pwRight(u,b.password)) return no('login',401);
         await st.delete(keyOf(u.name)); await st.delete('s:'+await sha256(b.token));
         return out({ok:true});
       }
       /* only reachable from game tables, never from the internet */
-      case 'verify': { const u=await session(b.token); return u?out({uid:u.uid,name:u.name}):no('auth',401); }
+      case 'password': {
+        const u=await session(b.token); if(!u) return no('auth',401);
+        if(!await pwRight(u,b.password)) return no('login',401);
+        if(!pwOk(b.next)) return no('pw');
+        u.salt=b64u(crypto.getRandomValues(new Uint8Array(16))); u.hash=await pwHash(b.next,u.salt);
+        await st.put(keyOf(u.name),u); return out({ok:true});
+      }
+      case 'verify': { const u=await session(b.token); return u?out({uid:u.uid,name:u.name,dev:u.role==='dev'}):no('auth',401); }
       case 'achieve': {
         const u=await st.get(keyOf(b.name)); if(!u||u.uid!==b.uid) return out({fresh:[]});
         const fresh=[]; u.ach=u.ach||{};
@@ -101,13 +116,15 @@ export class Accounts {
         return out({fresh,user:pub(u)});
       }
       case 'result': {
-        const done={};
+        const done={}, fresh={};
         for(const r of (Array.isArray(b.results)?b.results:[])){
           const u=await st.get(keyOf(r.name)); if(!u||u.uid!==r.uid||done[u.uid]) continue;
           u.played=(u.played||0)+1; if(r.win) u.wins=(u.wins||0)+1; else u.losses=(u.losses||0)+1;
-          await st.put(keyOf(u.name),u); done[u.uid]=pub(u);
+          u.ach=u.ach||{}; const fr=[];
+          for(const [n,a] of [[10,'m10'],[50,'m50']]) if(u.played>=n&&!u.ach[a]){ u.ach[a]=Date.now(); fr.push(a); }
+          await st.put(keyOf(u.name),u); done[u.uid]=pub(u); fresh[u.uid]=fr;
         }
-        return out({users:done});
+        return out({users:done,fresh});
       }
     }
     return no('nope',404);
@@ -206,8 +223,8 @@ export class Table {
     }
     this.sec[id]=secret; delete this.meta.away[id]; if(p.left){ delete p.left; }
     this.meta.acct=this.meta.acct||{};
-    if(account){ this.meta.acct[id]={uid:account.uid,name:account.name}; p.name=account.name; p.acct=true; }
-    else if(s.phase==='lobby'){ delete this.meta.acct[id]; delete p.acct; }
+    if(account){ this.meta.acct[id]={uid:account.uid,name:account.name}; p.name=account.name; p.acct=true; if(account.dev) p.dev=true; else delete p.dev; }
+    else if(s.phase==='lobby'){ delete this.meta.acct[id]; delete p.acct; delete p.dev; }
     ws.serializeAttachment({id,lang:m.lang==='nl'?'nl':'en'});
     await this.save();
     this.sendTo(ws,{t:'chatlog',list:this.chat});
@@ -221,7 +238,7 @@ export class Table {
     const now=Date.now();
     if(this.meta.lastChat&&this.meta.lastChat[a.id]&&now-this.meta.lastChat[a.id]<400) return;
     (this.meta.lastChat=this.meta.lastChat||{})[a.id]=now;
-    const msg={k,id:a.id,n:p.name,t,at:now,key:now.toString(36)+sid()};
+    const msg={k,id:a.id,n:p.name,t,at:now,key:now.toString(36)+sid()}; if(p.dev) msg.dev=true;
     if(k==='m'){ this.chat.push(msg); if(this.chat.length>CHAT_KEEP) this.chat=this.chat.slice(-CHAT_KEEP); await this.save(); }
     for(const w of this.sockets()) if(this.att(w).id&&w.readyState===1) this.sendTo(w,{t:'chat',m:msg});
   }
@@ -304,15 +321,29 @@ export class Table {
     const s=this.s, res=s&&s.result;
     if(!res||this.meta.achRes===res.id||!rankedRules(s.rules)) return;
     this.meta.achRes=res.id;
+    const place=placings(s), alive=s.players.filter(p=>!p.out), worst=Math.max(0,...Object.values(place));
+    if(this.achOn(res.caller)){
+      if(res.falseB) this.achGive(res.caller,'oops');
+      else if(res.winner===res.caller){ this.achGive(res.caller,'balls1'); if((s.turnsTaken||{})[res.caller]===1) this.achGive(res.caller,'quick'); }
+    }
+    for(const b of res.beaters||[]) this.achGive(b,'gotcha');
     for(const row of res.rows){
       if(!this.achOn(row.id)) continue;
       const t=this.achT(row.id), pre=row.before+row.gain;
+      if(s.phase!=='over'&&alive.length>=3&&place[row.id]===worst) t.last=true;
       if(pre===69){ t.h69++; this.achGive(row.id,'a69'); if(t.h69>=2) this.achGive(row.id,'a69x2'); }
       if(pre===100) this.achGive(row.id,'a100');
       if(res.winner!==row.id) t.lost=true;
-      else if(row.v<=-1&&row.v>=-4) this.achGive(row.id,'w'+(-row.v));
+      else if(row.v<=0&&row.v>=-4) this.achGive(row.id,'w'+(-row.v));
     }
-    if(s.phase==='over'){ const place=placings(s); for(const p of s.players) if(place[p.id]===1&&this.achOn(p.id)&&!this.achT(p.id).lost) this.achGive(p.id,'flawless'); }
+    if(s.phase==='over') for(const p of s.players){
+      if(place[p.id]!==1||!this.achOn(p.id)) continue;
+      const t=this.achT(p.id);
+      this.achGive(p.id,'win1');
+      if(!t.lost) this.achGive(p.id,'flawless');
+      if(t.last) this.achGive(p.id,'comeback');
+      if(p.score>=90) this.achGive(p.id,'survivor');
+    }
   }
   async achFlush(){
     const pend=this.pend; this.pend=null; if(!pend) return;
@@ -336,9 +367,9 @@ export class Table {
     if(!results.length) return;
     try{
       const r=await this.acctStub().fetch('https://acct/result',{method:'POST',body:JSON.stringify({results})});
-      const {users}=await r.json();
+      const {users,fresh}=await r.json();
       for(const [uid,user] of Object.entries(users||{})){ const pid=byUid[uid]; const win=results.find(x=>x.uid===uid).win;
-        for(const w of this.sockets()) if(this.att(w).id===pid) this.sendTo(w,{t:'record',win,user}); }
+        for(const w of this.sockets()) if(this.att(w).id===pid) this.sendTo(w,{t:'record',win,user,fresh:(fresh||{})[uid]||[]}); }
     }catch(e){}
   }
 

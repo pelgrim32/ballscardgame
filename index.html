@@ -89,6 +89,9 @@ input.txt::placeholder{color:rgba(255,255,255,.35)}
 .acctrow .btn{padding:8px 14px;font-size:16px}
 .acctsheet .stiles{margin:4px 0;grid-template-columns:repeat(2,minmax(0,1fr))}
 .note.ranked.on{color:var(--ink)}
+.devname{color:var(--gold);text-shadow:0 0 8px rgba(245,195,75,.45),0 1px 0 rgba(0,0,0,.5);font-weight:700}
+.devtag{display:inline-block;margin-left:5px;padding:1px 5px 0;border-radius:4px;background:linear-gradient(180deg,#ffe08a,#e0a526);color:#3a2600;font-size:10px;font-weight:800;letter-spacing:.08em;line-height:1.4;vertical-align:middle;text-shadow:none;box-shadow:0 1px 0 rgba(0,0,0,.35)}
+.skin-sketch .devname,.skin-drop .devname{color:#a87300;text-shadow:none}
 .vf{display:inline-block;margin-left:5px;font-size:12px;font-weight:700;color:var(--green)}
 .achh{margin:8px 0 2px;font-size:18px}.achh small{font-size:14px;color:var(--ink-dim);font-weight:600}
 .achlist{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:6px}
@@ -693,8 +696,8 @@ const L=(en,nl)=>lang==='nl'?nl:en;
 const GAME=()=>L('Balls!','Balzakken');
 const VERSION='1.6.0';
 const DEVLOG=[
-  {v:'1.6.0',d:'11-11-2026',en:['Every online table now runs on the game server: no peeking at cards or faking moves','Accounts: log in to keep a win/loss record','Online matches on Standard rules with at least 2 people count','16 achievements to unlock'],
-                            nl:['Alle online tafels draaien nu op de spelserver: niet meer spieken of zetten vervalsen','Accounts: log in om je winst en verlies bij te houden','Online potjes met standaardregels en minstens 2 mensen tellen mee','16 prestaties om te behalen']},
+  {v:'1.6.0',d:'11-11-2026',en:['Every online table now runs on the game server: no peeking at cards or faking moves','Accounts: log in to keep a win/loss record','Online matches on Standard rules with at least 2 people count','26 achievements to unlock'],
+                            nl:['Alle online tafels draaien nu op de spelserver: niet meer spieken of zetten vervalsen','Accounts: log in om je winst en verlies bij te houden','Online potjes met standaardregels en minstens 2 mensen tellen mee','26 prestaties om te behalen']},
   {v:'1.5.2',d:'10-11-2026',en:['When the host leaves, the next player in line becomes host','Players who leave during a match have their turns played for them'],
                             nl:['Als de host weggaat, wordt de volgende speler aan tafel host','Spelers die tijdens een potje weggaan, spelen automatisch verder']},
   {v:'1.5.1',d:'10-11-2026',en:['The next round starts after 5 seconds instead of 15','Online tables can now run on our own game server (test page: beta.html)'],
@@ -1219,7 +1222,7 @@ const rulesSum=r=>rulesSummary(r).replace(L('Custom rules: ','Eigen regels: '),'
 let acct=null, acctToken=load('balls.token')||null, showAcct=false, acctErr='', acctBusy=false;
 const ACCT_ERR={
   name:()=>L('Names are 3–14 letters, numbers, _ or -.','Namen zijn 3–14 letters, cijfers, _ of -.'),
-  pw:()=>L('Use a password of at least 6 characters.','Gebruik een wachtwoord van minstens 6 tekens.'),
+  pw:()=>L('Use a password of at least 8 characters.','Gebruik een wachtwoord van minstens 8 tekens.'),
   taken:()=>L('That name is already taken.','Die naam is al bezet.'),
   login:()=>L('Wrong name or password.','Verkeerde naam of wachtwoord.'),
   locked:()=>L('Too many tries. Wait 5 minutes and try again.','Te vaak geprobeerd. Wacht 5 minuten en probeer het opnieuw.'),
@@ -1244,6 +1247,7 @@ const ACH=[
   ['a69',L('Nice','Nice'),L('Get exactly 69 points','Kom precies op 69 punten')],
   ['a69x2',L('Nice, twice','Twee keer nice'),L('Get 69 points twice in one match','Kom twee keer op 69 in één potje')],
   ['a100',L('On the edge','Op het randje'),L('Get exactly 100 points','Kom precies op 100 punten')],
+  ['w0',L('Nothing at all','Helemaal niks'),L('Win a round with exactly 0','Win een ronde met precies 0')],
   ['w1',L('Below zero','Onder nul'),L('Win a round with -1','Win een ronde met -1')],
   ['w2',L('Deeper','Dieper'),L('Win a round with -2','Win een ronde met -2')],
   ['w3',L('Deep dive','Diepe duik'),L('Win a round with -3','Win een ronde met -3')],
@@ -1256,8 +1260,20 @@ const ACH=[
   ['tj',L('Hit the road, Jack','Dag boer'),L('Throw away a Jack','Gooi een boer weg')],
   ['tjj',L('Fair trade','Eerlijke ruil'),L('Throw away a Jack, then grab a Joker','Gooi een boer weg en pak daarna een joker')],
   ['t2j',L('Jack pair','Twee boeren'),L('Throw away 2 Jacks at once','Gooi 2 boeren tegelijk weg')],
-  ['flawless',L('Flawless','Foutloos'),L('Win a match without losing a round','Win een potje zonder een ronde te verliezen')]
+  ['flawless',L('Flawless','Foutloos'),L('Win a match without losing a round','Win een potje zonder een ronde te verliezen')],
+  ['win1',L('First of many','De eerste van vele'),L('Win a match','Win een potje')],
+  ['balls1',L('Called it','Mooi geroepen'),L('Call Balls and win the round','Roep Balzak en win de ronde')],
+  ['quick',L('Quick draw','Snel geschoten'),L('Call Balls on your first chance and win','Roep Balzak bij je eerste kans en win')],
+  ['gotcha',L('Gotcha','Hebbes'),L('Beat someone else\'s Balls call','Versla iemand die Balzak roept')],
+  ['oops',L('Oops','Oeps'),L('Call False Balls','Roep een valse Balzak')],
+  ['comeback',L('Comeback','Comeback'),L('Win a match after being last with 3 or more players left','Win een potje nadat je laatste stond met 3 of meer spelers over')],
+  ['survivor',L('Hanging on','Op het nippertje'),L('Win a match with 90 points or more','Win een potje met 90 punten of meer')],
+  ['m10',L('Regular','Vaste gast'),L('Play 10 matches that count for win/loss','Speel 10 potjes die meetellen voor winst/verlies')],
+  ['m50',L('Veteran','Veteraan'),L('Play 50 matches that count for win/loss','Speel 50 potjes die meetellen voor winst/verlies')]
 ];
+/* developer flair: gold name + DEV tag */
+const devTag=()=>`<span class="devtag" title="${L('Game developer','Maker van het spel')}">DEV</span>`;
+const nameHTML=p=>p&&p.dev?`<span class="devname">${esc(p.name)}</span>${devTag()}`:esc(p&&p.name||'');
 const achName=id=>(ACH.find(a=>a[0]===id)||[id,id])[1];
 const achCount=u=>u&&u.ach?ACH.filter(a=>u.ach[a[0]]).length:0;
 const winPct=u=>u&&u.played?Math.round(100*u.wins/u.played)+'%':'–';
@@ -1279,6 +1295,11 @@ function renderAcctSheet(){
       <p class="note">${L(`Logged in as <b>${esc(acct.name)}</b>. Only online matches on Standard rules with at least 2 people count.`,`Ingelogd als <b>${esc(acct.name)}</b>. Alleen online potjes met standaardregels en minstens 2 mensen tellen mee.`)}</p>
       ${acctErr?`<p class="err" role="alert">${esc(acctErr)}</p>`:''}
       <div class="row"><button class="btn ghost" id="a-out" ${busy}>${L('Log out','Uitloggen')}</button><button class="btn grow" id="a-close">${L('Done','Klaar')}</button></div>
+      <details class="rules"><summary>${L('Change password','Wachtwoord wijzigen')}</summary><div class="howto">
+        <input class="txt" id="a-oldpw" type="password" autocomplete="current-password" placeholder="${L('Current password','Huidig wachtwoord')}">
+        <input class="txt" id="a-newpw" type="password" autocomplete="new-password" maxlength="100" placeholder="${L('New password (8+ characters)','Nieuw wachtwoord (8+ tekens)')}">
+        <div class="row"><button class="btn grow" id="a-chpw" ${busy}>${L('Change password','Wachtwoord wijzigen')}</button></div>
+      </div></details>
       <details class="rules"><summary>${L('Delete account','Account verwijderen')}</summary><div class="howto">
         <p class="note">${L('This deletes your name and record for good.','Hiermee verwijder je je naam en je record voorgoed.')}</p>
         <input class="txt" id="a-delpw" type="password" autocomplete="current-password" placeholder="${L('Your password','Je wachtwoord')}">
@@ -1300,6 +1321,7 @@ function renderAcctSheet(){
   const run=async(path,body,after)=>{ acctBusy=true; acctErr=''; render(); const r=await acctApi(path,body); acctBusy=false; if(r.ok) after(r); else acctErr=r.err; render(); };
   if(acct){
     $('#a-out').onclick=()=>{ const t=acctToken; setAcct(null,null); acctApi('logout',{token:t}); close(); };
+    $('#a-chpw').onclick=()=>run('password',{token:acctToken,password:$('#a-oldpw').value,next:$('#a-newpw').value},()=>toast(L('Password changed.','Wachtwoord gewijzigd.')));
     $('#a-del').onclick=()=>{ const pw=$('#a-delpw').value; run('delete',{token:acctToken,password:pw},()=>{ setAcct(null,null); showAcct=false; toast(L('Your account is deleted.','Je account is verwijderd.')); }); };
   } else {
     const go=path=>{ const name=$('#a-name').value.trim(), pw=$('#a-pw').value; run(path,{name,password:pw},r=>{ setAcct(r.token,r.user); myName=r.user.name; store('balls.name',myName); showAcct=false; }); };
@@ -1342,7 +1364,7 @@ function serverOpen(code,{create=false}={}){
         else if(m.t==='chatlog') srvChatPush(m.list||[]);
         else if(m.t==='gone'){ sockWant=false; leaveTable(m.msg); }
         else if(m.t==='ach'&&m.user){ acct=m.user; (m.ids||[]).forEach((a,i)=>setTimeout(()=>toast('★ '+L('Achievement: ','Prestatie: ')+achName(a)),400+i*2200)); }
-        else if(m.t==='record'&&m.user){ acct=m.user; setTimeout(()=>toast(m.win?L(`+1 win · ${recordLine(acct)}`,`+1 gewonnen · ${recordLine(acct)}`):L(`Counted as a loss · ${recordLine(acct)}`,`Telt als verlies · ${recordLine(acct)}`)),2500); }
+        else if(m.t==='record'&&m.user){ acct=m.user; (m.fresh||[]).forEach((a,i)=>setTimeout(()=>toast('★ '+L('Achievement: ','Prestatie: ')+achName(a)),5000+i*2200)); setTimeout(()=>toast(m.win?L(`+1 win · ${recordLine(acct)}`,`+1 gewonnen · ${recordLine(acct)}`):L(`Counted as a loss · ${recordLine(acct)}`,`Telt als verlies · ${recordLine(acct)}`)),2500); }
       };
       ws.onclose=()=>{
         if(ws!==sock) return;
@@ -1714,7 +1736,7 @@ function renderHome(){
     <p class="tag">${L('Get your hand to 5 or less, hold it a turn, and call it before anyone else does.','Krijg je hand op 5 of minder, houd hem een beurt vast en roep het voordat een ander het doet.')}</p>
     <div class="panel">
       <label class="lbl" for="in-name">${L('Your name','Jouw naam')}</label>
-      ${acct?`<div class="acctrow"><div><b>${esc(acct.name)}</b><span class="note">${recordLine(acct)} · ★ ${achCount(acct)}/${ACH.length}</span></div><button class="btn ghost" id="b-acct">${L('Account','Account')}</button></div>`:
+      ${acct?`<div class="acctrow"><div><b>${acct.dev?`<span class="devname">${esc(acct.name)}</span>${devTag()}`:esc(acct.name)}</b><span class="note">${recordLine(acct)} · ★ ${achCount(acct)}/${ACH.length}</span></div><button class="btn ghost" id="b-acct">${L('Account','Account')}</button></div>`:
       `<input class="txt" id="in-name" maxlength="14" placeholder="${L('Your nickname here…','Jouw bijnaam hier…')}" value="${esc(myName)}" autocomplete="nickname">
       ${serverMode?`<div class="row acctrow"><span class="note">${L('Want to keep a win/loss record?','Wil je je winst en verlies bijhouden?')}</span><button class="btn ghost" id="b-acct">${L('Log in','Inloggen')}</button></div>`:''}`}
       ${homeErr?`<p class="err" role="alert">${esc(homeErr)}</p>`:''}
@@ -1769,7 +1791,7 @@ function renderLobby(){
     </div>
     <div class="panel">
       <h2>${L('Players','Spelers')} ${S.players.length}/${RULES.maxPlayers}</h2>
-      <ul class="plist">${S.players.map(p=>`<li><span class="av" style="background:${avColor(p.id)}">${esc((p.name||'?')[0].toUpperCase())}</span><span>${esc(p.name)}${p.acct?`<span class="vf" title="${L('Logged in','Ingelogd')}" aria-label="${L('logged in','ingelogd')}">✓</span>`:''}${youTag(p)}${p.bot?' · bot':''}${p.id===S.host?' · host':''}</span>${p.bot?(isHost?`<select class="lvlsel" data-botlvl="${esc(p.id)}" aria-label="${L('Difficulty for','Moeilijkheid voor')} ${esc(p.name)}">${BOT_LEVELS.map(v=>`<option value="${v}" ${lvlOf(S,p)===v?'selected':''}>${lvlName(v)}</option>`).join('')}</select>`:`<span class="rdy lvl">${lvlName(lvlOf(S,p))}</span>`):p.id===S.host?'':`<span class="rdy ${isReady(S,p)?'on':''}">${isReady(S,p)?L('Ready','Klaar'):L('Not ready','Niet klaar')}</span>`}${isHost&&p.id!==me?`<button class="x" data-kick="${esc(p.id)}">${L('Remove','Verwijderen')}</button>`:''}</li>`).join('')}</ul>
+      <ul class="plist">${S.players.map(p=>`<li><span class="av" style="background:${avColor(p.id)}">${esc((p.name||'?')[0].toUpperCase())}</span><span>${nameHTML(p)}${p.acct?`<span class="vf" title="${L('Logged in','Ingelogd')}" aria-label="${L('logged in','ingelogd')}">✓</span>`:''}${youTag(p)}${p.bot?' · bot':''}${p.id===S.host?' · host':''}</span>${p.bot?(isHost?`<select class="lvlsel" data-botlvl="${esc(p.id)}" aria-label="${L('Difficulty for','Moeilijkheid voor')} ${esc(p.name)}">${BOT_LEVELS.map(v=>`<option value="${v}" ${lvlOf(S,p)===v?'selected':''}>${lvlName(v)}</option>`).join('')}</select>`:`<span class="rdy lvl">${lvlName(lvlOf(S,p))}</span>`):p.id===S.host?'':`<span class="rdy ${isReady(S,p)?'on':''}">${isReady(S,p)?L('Ready','Klaar'):L('Not ready','Niet klaar')}</span>`}${isHost&&p.id!==me?`<button class="x" data-kick="${esc(p.id)}">${L('Remove','Verwijderen')}</button>`:''}</li>`).join('')}</ul>
       ${isHost?`<div class="row"><button class="btn ghost grow" id="b-bot" ${S.players.length>=RULES.maxPlayers?'disabled':''}>${L('Add bot','Bot toevoegen')}</button><button class="btn grow" id="b-start" ${S.players.length<2||nr.length?'disabled':''}>${L('Start game','Spel starten')}</button></div>
       <p class="note">${S.players.length<2?L('Add a bot or wait for a friend to join.','Voeg een bot toe of wacht tot er een vriend meedoet.'):nr.length?L(`Waiting for ${nr.map(p=>esc(p.name)).join(', ')} to ready up. You can remove someone who left.`,`Wachten tot ${nr.map(p=>esc(p.name)).join(', ')} klaar is. Je kunt iemand die weg is verwijderen.`):L('Everyone is ready.','Iedereen is klaar.')}</p>`
       :`<button class="btn ${meReady?'ghost':''}" id="b-ready" aria-pressed="${meReady}">${meReady?L('Ready ✓ · tap to cancel','Klaar ✓ · tik om te annuleren'):L('Ready up','Ik ben klaar')}</button>
@@ -1842,7 +1864,7 @@ function renderGame(){
       const n=(S.hands[p.id]||[]).length;
       return `<div class="opp ${p.id===cur.id&&S.phase==='play'?'turn':''} ${p.out?'out':''}" data-pid="${esc(p.id)}">
         <span class="av" style="background:${avColor(p.id)}">${esc((p.name||'?')[0].toUpperCase())}</span>
-        <span class="nm">${esc(p.name)}</span>
+        <span class="nm">${nameHTML(p)}</span>
         <div class="minifan" aria-label="${n} ${L('cards','kaarten')}">${p.out?'':'<i></i>'.repeat(Math.min(n,5))+(n>5?`<em class="mfn">+${n-5}</em>`:'')}</div>
         <span class="cnt">${p.out?'':n+L(' cards',' kaarten')}</span>
         <span class="sc">${p.out?L('out','uit'):p.score+L(' pts',' pnt')}</span>${rankBadge(S,p.id)}
@@ -2032,14 +2054,14 @@ function seatRect(id){
 function updateChatBadge(){ document.querySelectorAll('.chatbadge').forEach(b=>b.textContent=chatUnread||''); }
 function chatLogHTML(){
   if(!chatLog.length) return `<p class="empty">${L('No messages yet. Say hi, or tap a reaction.','Nog geen berichten. Zeg hoi, of tik op een reactie.')}</p>`;
-  return chatLog.map(m=>`<div class="${m.id===me?'me':''}"><b>${esc(m.n||L('Someone','Iemand'))}:</b> ${esc(m.t)}</div>`).join('');
+  return chatLog.map(m=>`<div class="${m.id===me?'me':''}"><b${m.dev?' class="devname"':''}>${esc(m.n||L('Someone','Iemand'))}${m.dev?devTag():''}:</b> ${esc(m.t)}</div>`).join('');
 }
 function refreshChatLog(){ const el=document.getElementById('chatlog'); if(el){ el.innerHTML=chatLogHTML(); el.scrollTop=el.scrollHeight; } }
 function onChatMsg(m,live){
   if(!m||typeof m.t!=='string') return;
   const text=m.t.slice(0,140), open=!!document.getElementById('chatlayer');
   if(m.k==='r'){ if(live && REACTS.includes(text)) bubble(text,seatRect(m.id),'react'); return; }
-  chatLog.push({id:m.id,n:String(m.n||'').slice(0,14),t:text}); if(chatLog.length>60) chatLog.shift();
+  chatLog.push({id:m.id,n:String(m.n||'').slice(0,14),t:text,dev:!!m.dev}); if(chatLog.length>60) chatLog.shift();
   if(open) refreshChatLog();
   if(live && m.id!==me){ SFX.chat(); if(!open){ chatUnread++; updateChatBadge(); }
     bubble({n:m.n||L('Someone','Iemand'),t:text.length>80?text.slice(0,80)+'…':text},seatRect(m.id),'say',3000); }
@@ -2179,7 +2201,7 @@ function syncCountdown(){
   tick(); cdTimer=setInterval(tick,100);
 }
 function scoreRows(){
-  return S.players.slice().sort((a,b)=>(a.out-b.out)||(a.score-b.score)).map(p=>`<div class="rrow"><span class="who">${p.out?'':rankBadge(S,p.id)} ${esc(p.name)}${youTag(p)}${p.out?`<span class="tagn bad">${L('out','uit')}</span>`:''}</span><span class="gain"></span><span class="tot">${p.score}</span></div>`).join('');
+  return S.players.slice().sort((a,b)=>(a.out-b.out)||(a.score-b.score)).map(p=>`<div class="rrow"><span class="who">${p.out?'':rankBadge(S,p.id)} ${nameHTML(p)}${youTag(p)}${p.out?`<span class="tagn bad">${L('out','uit')}</span>`:''}</span><span class="gain"></span><span class="tot">${p.score}</span></div>`).join('');
 }
 function renderScores(){
   layer.innerHTML=`<div class="overlay" id="ov"><div class="sheet" role="dialog" aria-label="${L('Scores','Stand')}">
