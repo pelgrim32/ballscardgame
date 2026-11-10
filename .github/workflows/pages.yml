@@ -1,4 +1,7 @@
 name: Deploy site
+# 1. Game server (Cloudflare): only runs once the CLOUDFLARE_API_TOKEN and CLOUDFLARE_ACCOUNT_ID secrets exist.
+# 2. Website (GitHub Pages): index.html is the live game. beta.html is the same game, playing online
+#    tables on the game server instead of Firebase.
 on:
   push:
     branches: [main]
@@ -11,16 +14,69 @@ concurrency:
   group: pages
   cancel-in-progress: true
 jobs:
+  server:
+    runs-on: ubuntu-latest
+    outputs:
+      url: ${{ steps.url.outputs.url }}
+    env:
+      CF_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+      CF_ACCOUNT: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+    steps:
+      - uses: actions/checkout@v4
+      - name: Skip when Cloudflare is not set up yet
+        if: env.CF_TOKEN == '' || env.CF_ACCOUNT == ''
+        run: echo "::notice::No Cloudflare secrets yet, so the game server was not deployed."
+      - uses: actions/setup-node@v4
+        if: env.CF_TOKEN != '' && env.CF_ACCOUNT != ''
+        with:
+          node-version: 22
+      - name: Build the server from index.html
+        if: env.CF_TOKEN != '' && env.CF_ACCOUNT != ''
+        run: node server/build.mjs
+      - name: Deploy to Cloudflare
+        id: deploy
+        if: env.CF_TOKEN != '' && env.CF_ACCOUNT != ''
+        uses: cloudflare/wrangler-action@v3
+        with:
+          apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+          workingDirectory: server
+          command: deploy
+      - name: Find the server address
+        id: url
+        if: steps.deploy.outcome == 'success'
+        env:
+          OUT: ${{ steps.deploy.outputs.command-output }}
+          DURL: ${{ steps.deploy.outputs.deployment-url }}
+        run: |
+          url="$DURL"
+          if [ -z "$url" ]; then url=$(printf '%s' "$OUT" | grep -oE 'https://[A-Za-z0-9.-]+\.workers\.dev' | head -1); fi
+          echo "Game server: $url"
+          echo "url=$url" >> "$GITHUB_OUTPUT"
   deploy:
+    needs: server
+    if: ${{ !cancelled() }}
     runs-on: ubuntu-latest
     environment:
       name: github-pages
       url: ${{ steps.deployment.outputs.page_url }}
     steps:
       - uses: actions/checkout@v4
+      - name: Put the site together
+        env:
+          SERVER_URL: ${{ needs.server.outputs.url }}
+        run: |
+          mkdir _site
+          cp index.html FONT-LICENSE.txt README.md .nojekyll _site/
+          if [ -n "$SERVER_URL" ]; then
+            sed "0,/<head>/s##<head><script>window.BALLS_SERVER='$SERVER_URL';</script>#" index.html > _site/beta.html
+            echo "beta.html uses $SERVER_URL"
+          else
+            cp index.html _site/beta.html
+          fi
       - uses: actions/configure-pages@v5
       - uses: actions/upload-pages-artifact@v3
         with:
-          path: .
+          path: _site
       - id: deployment
         uses: actions/deploy-pages@v4

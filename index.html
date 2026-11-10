@@ -1167,7 +1167,94 @@ function newId(){ return 'p'+Math.random().toString(36).slice(2,10); }
 let onlineId=null;
 let localId=load('balls.pid'); if(!localId){ localId=newId(); store('balls.pid',localId); }
 
-async function act(fn){
+/* ---- game server: the table runs on the server, so nobody can peek at hands or fake a move ----
+   On when the page sets window.BALLS_SERVER (beta.html does) or after opening the page once with ?server=<url>
+   (?server= with nothing after it switches it off again). Otherwise online tables use Firebase as before. */
+const SERVER_URL=(()=>{ let u=window.BALLS_SERVER||''; try{ const q=new URLSearchParams(location.search).get('server'); if(q!==null){ if(q) localStorage.setItem('balls.server',q); else localStorage.removeItem('balls.server'); } u=u||localStorage.getItem('balls.server')||''; }catch(e){} return u.replace(/\/+$/,''); })();
+const serverMode=!!SERVER_URL;
+let sock=null, sockWant=false, sockTries=0, sockTimer=null, clockOff=0, srvChat=[], srvChatCb=null;
+let mySecret=load('balls.secret'); if(!mySecret){ mySecret=newId()+newId()+newId(); store('balls.secret',mySecret); }
+const rulesSum=r=>rulesSummary(r).replace(L('Custom rules: ','Eigen regels: '),'');
+/* server times are moved onto this device's clock so countdowns line up */
+function fixTimes(s){ for(const k of ['startAt','turnAt','revealAt','overAt','lastActAt','created']) if(typeof s[k]==='number') s[k]+=clockOff; return s; }
+function serverSubscribe(code){
+  roomCode=code; mode='online'; ref=null; S=null; firstSnap=true; lastSplash=null; seenHand.clear(); srvChat=[];
+  store('balls.room',code); startChat(code); render();
+}
+function serverOpen(code,{create=false}={}){
+  return new Promise(resolve=>{
+    let first=true;
+    const done=r=>{ if(first){ first=false; resolve(r); return true; } return false; };
+    const go=()=>{
+      clearTimeout(sockTimer);
+      let ws; try{ ws=new WebSocket(SERVER_URL.replace(/^http/,'ws')+'/api/table/'+code); }catch(e){ sockWant=false; done({ok:false,msg:L('Could not reach the game server. Try again.','De spelserver is niet bereikbaar. Probeer het opnieuw.')}); return; }
+      sock=ws;
+      ws.onopen=()=>{
+        sockTries=0;
+        const hello={t:'hello',id:me,secret:mySecret,name:myName.trim().slice(0,14),lang};
+        if(create&&first){ const r=localRules(); Object.assign(hello,{create:true,rules:r,sum:rulesSum(r)}); }
+        ws.send(JSON.stringify(hello));
+      };
+      ws.onmessage=e=>{
+        if(ws!==sock) return;
+        let m; try{ m=JSON.parse(e.data); }catch(x){ return; }
+        if(m.t==='state'){ clockOff=Date.now()-(m.s.now||Date.now()); done({ok:true}); onServerState(fixTimes(m.s)); }
+        else if(m.t==='err'){
+          if(done({ok:false,code:m.code,msg:m.msg})){ sockWant=false; sock=null; ws.close(); }
+          else if(['notfound','secret','started','full'].includes(m.code)){ sockWant=false; leaveTable(m.msg); }
+          else toast(m.msg);
+        }
+        else if(m.t==='chat') srvChatPush([m.m]);
+        else if(m.t==='chatlog') srvChatPush(m.list||[]);
+        else if(m.t==='gone'){ sockWant=false; leaveTable(m.msg); }
+      };
+      ws.onclose=()=>{
+        if(ws!==sock) return;
+        sock=null;
+        if(done({ok:false,msg:L('Could not reach the game server. Try again.','De spelserver is niet bereikbaar. Probeer het opnieuw.')})){ sockWant=false; return; }
+        if(!sockWant) return;
+        if(++sockTries===3) toast(L('Lost the connection. Reconnecting…','Verbinding kwijt. Opnieuw verbinden…'));
+        sockTimer=setTimeout(go,Math.min(8000,400*2**sockTries));
+      };
+    };
+    sockWant=true; go();
+  });
+}
+function onServerState(s){
+  if(mode!=='online') return;
+  if(!s.players.some(p=>p.id===me)){ sockWant=false; leaveTable(L('You are no longer at this table.','Je zit niet meer aan deze tafel.')); return; }
+  const pv=firstSnap?null:S; S=s;
+  if(firstSnap&&S.result) lastSplash=S.result.id;
+  afterState(pv); firstSnap=false;
+}
+function srvChatPush(list){
+  for(const m of list){ if(!m||!m.key||srvChat.some(x=>x.key===m.key)) continue; srvChat.push({...m,at:(m.at||0)+clockOff}); }
+  srvChat=srvChat.slice(-60);
+  if(srvChatCb) srvChatCb(srvChat);
+}
+function serverChat(){
+  return {
+    watch(code,cb){ srvChatCb=cb; cb(srvChat); return ()=>{ if(srvChatCb===cb) srvChatCb=null; }; },
+    send(code,m){ if(!sock||sock.readyState!==1) throw new Error('offline'); sock.send(JSON.stringify({t:'chat',k:m.k,text:m.t})); }
+  };
+}
+function serverLobby(){
+  return {
+    watch(cb){
+      const poll=()=>{ if(mode||document.hidden) return; fetch(SERVER_URL+'/api/lobby').then(r=>r.json()).then(l=>cb((l||[]).map(t=>({...t,at:(t.at||0)+clockOff})))).catch(()=>{}); };
+      poll(); const t=setInterval(poll,20000); const v=()=>{ if(!document.hidden) poll(); }; document.addEventListener('visibilitychange',v);
+      return ()=>{ clearInterval(t); document.removeEventListener('visibilitychange',v); };
+    },
+    put(){}, drop(){}
+  };
+}
+
+async function act(fn,intent){
+  if(serverMode&&mode==='online'){
+    if(!intent||!S) return;
+    if(!sock||sock.readyState!==1){ toast(L('Not connected to the table yet. Reconnecting…','Nog niet verbonden met de tafel. Opnieuw verbinden…')); return; }
+    sock.send(JSON.stringify({t:'act',...intent})); sel.clear(); render(); return;
+  }
   if(busy||!S) return;
   const s=structuredClone(S);
   useRules(s);
@@ -1268,7 +1355,7 @@ function animateMove(prev,cur,before){
   }
 }
 
-function iDriveBots(){ return mode==='local' || (S && S.host===me); }
+function iDriveBots(){ if(serverMode&&mode==='online') return false; return mode==='local' || (S && S.host===me); }
 function scheduleBots(){
   if(!S||S.phase!=='play'||!iDriveBots()) return;
   useRules(S);
@@ -1345,6 +1432,10 @@ function subscribe(code){
 async function createRoom(){
   me=onlineId;
   if(!myName.trim()){ homeErr=L('Enter your name first.','Vul eerst je naam in.'); render(); return; }
+  if(serverMode){
+    for(let i=0;i<5;i++){ const code=genCode(); serverSubscribe(code); const r=await serverOpen(code,{create:true}); if(r.ok) return; if(r.code!=='exists'){ leaveTable(r.msg||L('Could not create the table. Try again.','De tafel kon niet worden gemaakt. Probeer het opnieuw.')); return; } }
+    leaveTable(L('Could not create the table. Try again.','De tafel kon niet worden gemaakt. Probeer het opnieuw.')); return;
+  }
   let code=genCode();
   const r=db.doc('rooms/'+code);
   const state={v:1,phase:'lobby',host:me,code,players:[{id:me,name:myName.trim(),score:0,out:false}],round:0,dealer:0,log:[],v_round:0,created:Date.now(),rules:localRules()};
@@ -1356,6 +1447,7 @@ async function joinRoom(code){
   code=(code||'').trim().toUpperCase();
   if(!myName.trim()){ homeErr=L('Enter your name first.','Vul eerst je naam in.'); render(); return; }
   if(!/^[A-Z]{4}$/.test(code)){ homeErr=L('A table code is 4 letters.','Een tafelcode heeft 4 letters.'); render(); return; }
+  if(serverMode){ serverSubscribe(code); const r=await serverOpen(code); if(!r.ok) leaveTable(r.msg); return; }
   const r=db.doc('rooms/'+code);
   try{
     let lease={acquired:false};
@@ -1383,6 +1475,8 @@ async function roomTxn(fn,r=ref){
   d.v=(d.v||0)+1; await r.set(d);
 }
 function leaveTable(msg){
+  if(serverMode){ const w=sock; sockWant=false; sock=null; clearTimeout(sockTimer); srvChat=[];
+    if(w){ try{ if(w.readyState===1) w.send(JSON.stringify({t:'act',a:'leave'})); }catch(e){} setTimeout(()=>{ try{ w.close(); }catch(e){} },200); } }
   if(mode==='online'&&S&&S.phase==='lobby'&&S.host!==me&&ref){ const r=ref, id=me; roomTxn(d=>{ if(d.phase!=='lobby') return false; const n=d.players.length; d.players=d.players.filter(p=>p.id!==id); if(d.players.length===n) return false; },r).catch(()=>{}); }
   lastAllReady=null;
   stopChat(); showInfo=false;
@@ -1473,7 +1567,7 @@ const HOWTO_NL=`<h4>Doel</h4>
       <li>Met de luidsprekerknop zet je het geluid uit. Thema's en de taal vind je bij Instellingen.</li></ul>
       <p class="credit">Pixellettertype “balatro” door localthunk, SIL Open Font License 1.1.</p>`;
 function renderHome(){
-  const onlineOK = !!db;
+  const onlineOK = !!db || serverMode;
   app.innerHTML=`<div class="screen home">
     <div class="logo ${lang}">${L('BALLS!','BALZAKKEN!')}</div>
     <p class="tag">${L('Get your hand to 5 or less, hold it a turn, and call it before anyone else does.','Krijg je hand op 5 of minder, houd hem een beurt vast en roep het voordat een ander het doet.')}</p>
@@ -1546,13 +1640,13 @@ function renderLobby(){
   </div>`;
   $('#b-leave').onclick=()=>leaveTable();
   $('#b-chat').onclick=openChat;
-  const rb=$('#b-ready'); if(rb) rb.onclick=()=>{ const want=!meReady; rb.disabled=true; roomTxn(d=>{ if(d.phase!=='lobby') return false; const p=d.players.find(x=>x.id===me); if(!p) return false; p.ready=want; }).catch(()=>{ toast(L('That did not reach the table. Try again.','Dat kwam niet aan bij de tafel. Probeer het opnieuw.')); rb.disabled=false; }); };
-  if(isHost) wireRulesForm(app, deriveRules(S.rules), r=>{ saveLocalRules(r); act(s=>{ if(s.players.length>r.maxPlayers) return L('There are already more players than that.','Er zitten al meer spelers aan tafel.'); s.rules=r; s.players.forEach(p=>{ if(p.id!==s.host) p.ready=false; }); }); });
+  const rb=$('#b-ready'); if(rb) rb.onclick=()=>{ const want=!meReady; rb.disabled=true; if(serverMode){ act(null,{a:'ready',on:want}); return; } roomTxn(d=>{ if(d.phase!=='lobby') return false; const p=d.players.find(x=>x.id===me); if(!p) return false; p.ready=want; }).catch(()=>{ toast(L('That did not reach the table. Try again.','Dat kwam niet aan bij de tafel. Probeer het opnieuw.')); rb.disabled=false; }); };
+  if(isHost) wireRulesForm(app, deriveRules(S.rules), r=>{ saveLocalRules(r); act(s=>{ if(s.players.length>r.maxPlayers) return L('There are already more players than that.','Er zitten al meer spelers aan tafel.'); s.rules=r; s.players.forEach(p=>{ if(p.id!==s.host) p.ready=false; }); },{a:'rules',rules:r,sum:rulesSum(r)}); });
   if(isHost){
-    $('#b-bot').onclick=()=>act(s=>{ const used=new Set(s.players.map(p=>p.name)); const n=BOT_NAMES.find(x=>!used.has(x))||'Bot'; s.players.push({id:'b'+newId(),name:n,score:0,out:false,bot:true,lvl:localRules().botLevel||'normal'}); });
-    $('#b-start').onclick=()=>act(s=>{ if(s.players.length<2) return L('You need at least 2 players.','Je hebt minstens 2 spelers nodig.'); const w=notReady(s); if(w.length) return L('Waiting for '+w.map(p=>p.name).join(', ')+' to ready up.','Wachten tot '+w.map(p=>p.name).join(', ')+' klaar is.'); const cn=cardsNeeded(s.rules,s.players.length); if(cn.need>cn.have) return L(`Not enough cards: ${s.players.length} players need ${cn.need}, the deck has ${cn.have}. Add a deck or deal fewer cards.`,`Niet genoeg kaarten: ${s.players.length} spelers hebben er ${cn.need} nodig, het spel heeft er ${cn.have}. Voeg een kaartspel toe of deel minder kaarten.`); s.dealer=Math.floor(Math.random()*s.players.length); s.v_round=1; startRound(s); });
-    app.querySelectorAll('[data-botlvl]').forEach(el=>el.onchange=()=>{ const id=el.dataset.botlvl, v=el.value; if(!BOT_LEVELS.includes(v)) return; act(s=>{ const b=s.players.find(x=>x.id===id&&x.bot); if(b) b.lvl=v; }); });
-    app.querySelectorAll('[data-kick]').forEach(b=>b.onclick=()=>act(s=>{ s.players=s.players.filter(p=>p.id!==b.dataset.kick); }));
+    $('#b-bot').onclick=()=>act(s=>{ const used=new Set(s.players.map(p=>p.name)); const n=BOT_NAMES.find(x=>!used.has(x))||'Bot'; s.players.push({id:'b'+newId(),name:n,score:0,out:false,bot:true,lvl:localRules().botLevel||'normal'}); },{a:'addBot',lvl:localRules().botLevel||'normal'});
+    $('#b-start').onclick=()=>act(s=>{ if(s.players.length<2) return L('You need at least 2 players.','Je hebt minstens 2 spelers nodig.'); const w=notReady(s); if(w.length) return L('Waiting for '+w.map(p=>p.name).join(', ')+' to ready up.','Wachten tot '+w.map(p=>p.name).join(', ')+' klaar is.'); const cn=cardsNeeded(s.rules,s.players.length); if(cn.need>cn.have) return L(`Not enough cards: ${s.players.length} players need ${cn.need}, the deck has ${cn.have}. Add a deck or deal fewer cards.`,`Niet genoeg kaarten: ${s.players.length} spelers hebben er ${cn.need} nodig, het spel heeft er ${cn.have}. Voeg een kaartspel toe of deel minder kaarten.`); s.dealer=Math.floor(Math.random()*s.players.length); s.v_round=1; startRound(s); },{a:'start'});
+    app.querySelectorAll('[data-botlvl]').forEach(el=>el.onchange=()=>{ const id=el.dataset.botlvl, v=el.value; if(!BOT_LEVELS.includes(v)) return; act(s=>{ const b=s.players.find(x=>x.id===id&&x.bot); if(b) b.lvl=v; },{a:'botLvl',id,lvl:v}); });
+    app.querySelectorAll('[data-kick]').forEach(b=>b.onclick=()=>act(s=>{ s.players=s.players.filter(p=>p.id!==b.dataset.kick); },{a:'kick',id:b.dataset.kick}));
   }
 }
 
@@ -1645,11 +1739,11 @@ function renderGame(){
     const toggle=()=>{ if(!(myTurn&&S.step==='throw')) return; const c=el.dataset.c; sel.has(c)?sel.delete(c):sel.add(c); render(); };
     el.onclick=toggle; el.onkeydown=e=>{ if(e.key==='Enter'||e.key===' '){e.preventDefault();toggle();} };
   });
-  $('#b-throw').onclick=()=>{ const cs=[...sel]; act(s=>doThrow(s,me,cs)); };
-  $('#b-balls').onclick=()=>act(s=>doBalls(s,me));
-  $('#b-deck').onclick=()=>{ if(drawStep) act(s=>doDraw(s,me,'deck')); };
+  $('#b-throw').onclick=()=>{ const cs=[...sel]; act(s=>doThrow(s,me,cs),{a:'throw',cards:cs}); };
+  $('#b-balls').onclick=()=>act(s=>doBalls(s,me),{a:'balls'});
+  $('#b-deck').onclick=()=>{ if(drawStep) act(s=>doDraw(s,me,'deck'),{a:'draw',src:'deck'}); };
   if(drawStep) app.querySelectorAll('[data-take]').forEach(el=>{
-    const take=()=>act(s=>doDraw(s,me,'avail',el.dataset.take));
+    const take=()=>act(s=>doDraw(s,me,'avail',el.dataset.take),{a:'draw',src:'avail',card:el.dataset.take});
     el.onclick=take; el.onkeydown=e=>{ if(e.key==='Enter'||e.key===' '){e.preventDefault();take();} };
   });
 }
@@ -1731,6 +1825,7 @@ function openTablesHTML(){
 }
 function wireOpenTables(root){ root.querySelectorAll('[data-joinpub]').forEach(b=>b.onclick=()=>{ homeErr=''; joinRoom(b.dataset.joinpub); }); }
 function syncListing(){
+  if(serverMode) return;
   if(!lobbyApi||mode!=='online'||!S||S.host!==me) return;
   const R=deriveRules(S.rules);
   if(S.phase==='lobby' && R.pub){
@@ -1985,8 +2080,8 @@ function renderResult(){
   const nx=$('#b-next');
   if(nx) nx.onclick=()=>{
     if(over && mode==='local'){ startLocal(); return; }
-    if(over){ act(resetToLobby); return; }
-    act(s=>{ s.v_round=(s.v_round||0)+1; startRound(s); });
+    if(over){ act(resetToLobby,{a:'toLobby'}); return; }
+    act(s=>{ s.v_round=(s.v_round||0)+1; startRound(s); },{a:'next'});
   };
   const hm=$('#b-home'); if(hm) hm.onclick=()=>{ if(mode==='online') leaveTable(); else { mode=null; S=null; render(); } };
 }
@@ -2061,9 +2156,12 @@ buildPixelJokers().then(()=>{ if(mode) render(); else renderHome(); });
   let user=null;
   try{ [db,user]=await Promise.all([use?use('db'):null, use?use('user'):null]); }catch(e){ db=null; }
   try{ const uid=user?await user.id():null; onlineId=uid||localId; }catch(e){ onlineId=localId; }
-  if(!db && !use) db = await firebaseDB();
-  if(db) lobbyApi = db.lobby || claudeLobby(db);
-  if(db) chatApi = db.chat || claudeChat(db);
+  if(serverMode){ lobbyApi=serverLobby(); chatApi=serverChat(); }
+  else {
+    if(!db && !use) db = await firebaseDB();
+    if(db) lobbyApi = db.lobby || claudeLobby(db);
+    if(db) chatApi = db.chat || claudeChat(db);
+  }
   startLobbyWatch();
   dbChecked=true;
   if(!mode) render();

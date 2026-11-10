@@ -1,0 +1,302 @@
+/* ===================================================================
+   Balls! game server (Cloudflare Worker + Durable Objects)
+   One Table object per 4-letter code runs the whole game: it shuffles,
+   deals, checks every move and sends each player only their own cards.
+   The rules engine above this block is copied from index.html by build.mjs,
+   so the browser (bot games) and the server always play by the same rules.
+   =================================================================== */
+const CORS={'Access-Control-Allow-Origin':'*','Access-Control-Allow-Methods':'GET,OPTIONS','Access-Control-Allow-Headers':'content-type'};
+const json=(o,status=200)=>new Response(JSON.stringify(o),{status,headers:{'content-type':'application/json',...CORS}});
+const AWAY_PLAY_MS=30000, AWAY_LOBBY_MS=60000, EMPTY_CLOSE_MS=10*60000, CHAT_KEEP=40;
+const ID_RE=/^[A-Za-z0-9_-]{4,40}$/;
+const sid=()=>Math.random().toString(36).slice(2,10);
+const clean=(t,n)=>String(t==null?'':t).replace(/[\u0000-\u001f]/g,'').trim().slice(0,n);
+
+export default {
+  async fetch(req, env){
+    const url=new URL(req.url);
+    if(req.method==='OPTIONS') return new Response(null,{status:204,headers:CORS});
+    if(url.pathname==='/api/lobby'){
+      const stub=env.LOBBY.get(env.LOBBY.idFromName('lobby'));
+      const r=await stub.fetch('https://lobby/list');
+      return new Response(await r.text(),{headers:{'content-type':'application/json',...CORS}});
+    }
+    const m=url.pathname.match(/^\/api\/table\/([A-Z]{4})$/);
+    if(m){
+      if(req.headers.get('Upgrade')!=='websocket') return json({error:'Use a WebSocket to join a table.'},426);
+      return env.TABLE.get(env.TABLE.idFromName(m[1])).fetch(req);
+    }
+    if(url.pathname==='/'||url.pathname==='/api/health') return json({ok:true,game:'balls',version:VERSION});
+    return json({error:'not found'},404);
+  }
+};
+
+/* ---------- public table list ---------- */
+export class Lobby {
+  constructor(ctx){ this.ctx=ctx; }
+  async fetch(req){
+    let list=(await this.ctx.storage.get('list'))||{};
+    const now=Date.now();
+    for(const k of Object.keys(list)) if(now-(list[k].at||0)>2*3600e3) delete list[k];
+    if(req.method==='POST'){
+      const b=await req.json();
+      if(b&&/^[A-Z]{4}$/.test(b.code)){ if(b.drop) delete list[b.code]; else list[b.code]={n:clean(b.info.n,14),p:b.info.p|0,m:b.info.m|0,s:clean(b.info.s,80),at:now}; }
+      await this.ctx.storage.put('list',list);
+      return new Response('ok');
+    }
+    return new Response(JSON.stringify(Object.entries(list).map(([code,x])=>({code,...x}))),{headers:{'content-type':'application/json'}});
+  }
+}
+
+/* ---------- one game table ---------- */
+export class Table {
+  constructor(ctx, env){ this.ctx=ctx; this.env=env; this.loaded=false; }
+
+  async load(){
+    if(this.loaded) return;
+    const got=await this.ctx.storage.get(['s','sec','chat','meta']);
+    this.s=got.get('s')||null; this.sec=got.get('sec')||{}; this.chat=got.get('chat')||[]; this.meta=got.get('meta')||{away:{},listed:null,code:null};
+    this.loaded=true;
+  }
+  async save(){ await this.ctx.storage.put({s:this.s,sec:this.sec,chat:this.chat,meta:this.meta}); }
+
+  async fetch(req){
+    const code=(new URL(req.url).pathname.match(/([A-Z]{4})$/)||[])[1];
+    await this.load();
+    if(code&&!this.meta.code){ this.meta.code=code; }
+    const pair=new WebSocketPair(); const [client,server]=Object.values(pair);
+    this.ctx.acceptWebSocket(server);
+    return new Response(null,{status:101,webSocket:client});
+  }
+
+  /* ---- sockets ---- */
+  sockets(){ return this.ctx.getWebSockets(); }
+  att(ws){ try{ return ws.deserializeAttachment()||{}; }catch(e){ return {}; } }
+  online(id,except){ return this.sockets().some(w=>w!==except&&this.att(w).id===id&&w.readyState===1); }
+  sendTo(ws,o){ try{ ws.send(JSON.stringify(o)); }catch(e){} }
+  err(ws,msg,code){ this.sendTo(ws,{t:'err',msg,code}); }
+  view(id){
+    const s=this.s, v=JSON.parse(JSON.stringify(s));
+    v.hands={}; for(const [pid,h] of Object.entries(s.hands||{})) v.hands[pid]=pid===id?h.slice():h.map(()=> 'back');
+    v.deck=(s.deck||[]).map(()=>0);
+    v.now=Date.now();
+    return v;
+  }
+  broadcast(){ for(const ws of this.sockets()){ const a=this.att(ws); if(a.id&&ws.readyState===1) this.sendTo(ws,{t:'state',s:this.view(a.id)}); } }
+  humans(){ return this.s?this.s.players.filter(p=>!p.bot):[]; }
+
+  async webSocketMessage(ws,raw){
+    await this.load();
+    let m; try{ m=JSON.parse(raw); }catch(e){ return; }
+    if(!m||typeof m!=='object') return;
+    lang=m.lang==='nl'||this.att(ws).lang==='nl'?'nl':'en';
+    if(m.t==='hello') return this.hello(ws,m);
+    const a=this.att(ws); if(!a.id||!this.s){ return this.err(ws,L('Join the table first.','Doe eerst mee aan de tafel.')); }
+    if(m.t==='chat') return this.chatMsg(ws,a,m);
+    if(m.t==='act') return this.action(ws,a,m);
+  }
+
+  async hello(ws,m){
+    const id=String(m.id||''), secret=String(m.secret||''), name=clean(m.name,14)||'Player';
+    if(!ID_RE.test(id)||secret.length<8) return this.err(ws,'Bad hello.');
+    const code=this.meta.code;
+    if(m.create){
+      const live=this.s&&this.humans().some(p=>this.online(p.id,ws));
+      if(live) return this.err(ws,'That code is taken.','exists');
+      const rules=sanitizeRules(m.rules);
+      this.s={v:1,phase:'lobby',host:id,code,players:[{id,name,score:0,out:false}],round:0,dealer:0,log:[],v_round:0,created:Date.now(),rules,stats:{},history:[]};
+      this.sec={}; this.chat=[]; this.meta.away={}; this.meta.listed=null; this.meta.sum=clean(m.sum,80);
+    }
+    const s=this.s;
+    if(!s) return this.err(ws,L(`No table with code ${code}.`,`Er is geen tafel met code ${code}.`),'notfound');
+    if(this.sec[id]&&this.sec[id]!==secret) return this.err(ws,L('That seat belongs to someone else.','Die plek is van iemand anders.'),'secret');
+    let p=s.players.find(x=>x.id===id);
+    if(!p){
+      if(s.phase!=='lobby') return this.err(ws,L('That game has already started.','Dat spel is al begonnen.'),'started');
+      const mx=deriveRules(s.rules).maxPlayers;
+      if(s.players.length>=mx) return this.err(ws,L(`That table is full (${mx} players).`,`Die tafel is vol (${mx} spelers).`),'full');
+      p={id,name,score:0,out:false}; s.players.push(p); s.v++;
+    }
+    this.sec[id]=secret; delete this.meta.away[id]; if(p.left){ delete p.left; }
+    ws.serializeAttachment({id,lang:m.lang==='nl'?'nl':'en'});
+    await this.save();
+    this.sendTo(ws,{t:'chatlog',list:this.chat});
+    this.broadcast(); await this.listing(); await this.schedule();
+  }
+
+  async chatMsg(ws,a,m){
+    const t=clean(m.text,140); if(!t) return;
+    const k=m.k==='r'?'r':'m';
+    const p=this.s.players.find(x=>x.id===a.id); if(!p) return;
+    const now=Date.now();
+    if(this.meta.lastChat&&this.meta.lastChat[a.id]&&now-this.meta.lastChat[a.id]<400) return;
+    (this.meta.lastChat=this.meta.lastChat||{})[a.id]=now;
+    const msg={k,id:a.id,n:p.name,t,at:now,key:now.toString(36)+sid()};
+    if(k==='m'){ this.chat.push(msg); if(this.chat.length>CHAT_KEEP) this.chat=this.chat.slice(-CHAT_KEEP); await this.save(); }
+    for(const w of this.sockets()) if(this.att(w).id&&w.readyState===1) this.sendTo(w,{t:'chat',m:msg});
+  }
+
+  async action(ws,a,m){
+    const s=this.s, id=a.id, me=s.players.find(p=>p.id===id), host=s.host===id;
+    useRules(s);
+    const fail=msg=>{ this.err(ws,msg); return true; };
+    let err=null;
+    switch(m.a){
+      case 'throw': if(!Array.isArray(m.cards)) return; err=doThrow(s,id,m.cards.map(String).slice(0,12)); break;
+      case 'draw': err=doDraw(s,id,m.src==='avail'?'avail':'deck',String(m.card||'')); break;
+      case 'balls': err=doBalls(s,id); break;
+      case 'start': {
+        if(!host||s.phase!=='lobby') return;
+        if(s.players.length<2) err=L('You need at least 2 players.','Je hebt minstens 2 spelers nodig.');
+        else if(notReady(s).length) err=L('Waiting for '+notReady(s).map(p=>p.name).join(', ')+' to ready up.','Wachten tot '+notReady(s).map(p=>p.name).join(', ')+' klaar is.');
+        else { const cn=cardsNeeded(s.rules,s.players.length); if(cn.need>cn.have) err=L('Not enough cards for this many players.','Niet genoeg kaarten voor zoveel spelers.'); else { s.stats={}; s.history=[]; s.dealer=Math.floor(Math.random()*s.players.length); s.v_round=1; startRound(s); } }
+        break; }
+      case 'addBot': {
+        if(!host||s.phase!=='lobby') return;
+        if(s.players.length>=deriveRules(s.rules).maxPlayers) return;
+        const used=new Set(s.players.map(p=>p.name)); const n=BOT_NAMES.find(x=>!used.has(x))||'Bot';
+        s.players.push({id:'b'+sid(),name:n,score:0,out:false,bot:true,lvl:BOT_LEVELS.includes(m.lvl)?m.lvl:'normal'}); break; }
+      case 'kick': {
+        if(!host||s.phase!=='lobby'||m.id===id) return;
+        s.players=s.players.filter(p=>p.id!==m.id);
+        for(const w of this.sockets()) if(this.att(w).id===m.id){ this.sendTo(w,{t:'gone',msg:L('The host removed you from the table.','De host heeft je van de tafel gehaald.')}); try{ w.close(1000,'removed'); }catch(e){} }
+        delete this.sec[m.id]; break; }
+      case 'botLvl': { if(!host||s.phase!=='lobby'||!BOT_LEVELS.includes(m.lvl)) return; const b=s.players.find(p=>p.id===m.id&&p.bot); if(b) b.lvl=m.lvl; break; }
+      case 'rules': {
+        if(!host||s.phase!=='lobby') return;
+        const r=sanitizeRules(m.rules);
+        if(s.players.length>deriveRules(r).maxPlayers) err=L('There are already more players than that.','Er zitten al meer spelers aan tafel.');
+        else { s.rules=r; this.meta.sum=clean(m.sum,80); s.players.forEach(p=>{ if(p.id!==s.host) p.ready=false; }); }
+        break; }
+      case 'ready': { if(s.phase!=='lobby'||!me||host) return; me.ready=!!m.on; break; }
+      case 'next': { if(s.phase!=='reveal'||!host) return; s.v_round=(s.v_round||0)+1; startRound(s); break; }
+      case 'toLobby': { if(s.phase!=='over'||!me) return; this.toLobby(); break; }
+      case 'leave': {
+        if(!me) return;
+        if(s.phase==='lobby'){ s.players=s.players.filter(p=>p.id!==id); delete this.sec[id]; if(host) this.passHost(); }
+        else { me.left=true; this.meta.away[id]=Date.now()-AWAY_PLAY_MS; if(host) this.passHost(); }
+        break; }
+      default: return;
+    }
+    if(err) return fail(err);
+    s.v=(s.v||0)+1; s.lastActAt=Date.now();
+    if(!this.s.players.some(p=>!p.bot)){ return this.close(); }
+    await this.save(); this.broadcast(); await this.listing(); await this.schedule();
+  }
+
+  /* back to the lobby: players who left during the match lose their seat */
+  toLobby(){
+    const s=this.s; resetToLobby(s);
+    const gone=s.players.filter(p=>!p.bot&&(p.left||!this.online(p.id)));
+    if(gone.some(p=>p.id===s.host)) this.passHost();
+    s.players=s.players.filter(p=>p.bot||!(p.left)||p.id===s.host);
+    for(const p of s.players) delete p.left;
+    for(const id of Object.keys(this.sec)) if(!s.players.some(p=>p.id===id)) delete this.sec[id];
+  }
+  passHost(){
+    const s=this.s; if(!s) return;
+    const next=s.players.find(p=>!p.bot&&p.id!==s.host&&this.online(p.id))||s.players.find(p=>!p.bot&&p.id!==s.host);
+    if(next){ s.host=next.id; next.ready=false; }
+  }
+
+  async webSocketClose(ws){ await this.gone(ws); }
+  async webSocketError(ws){ await this.gone(ws); }
+  async gone(ws){
+    await this.load(); if(!this.s) return;
+    const a=this.att(ws); if(!a.id) return;
+    if(!this.online(a.id,ws)){ this.meta.away[a.id]=Date.now(); await this.save(); await this.schedule(); }
+  }
+
+  /* ---- what the table has to do next, and when ---- */
+  dueList(){
+    const s=this.s, now=Date.now(), out=[];
+    if(!s) return out;
+    const R=deriveRules(s.rules), humans=this.humans();
+    const anyOnline=humans.some(p=>this.online(p.id));
+    if(!anyOnline){ const since=Math.max(0,...humans.map(p=>this.meta.away[p.id]||0)); out.push({at:(since||now)+EMPTY_CLOSE_MS,run:()=>'close'}); }
+    if(s.phase==='lobby'){
+      for(const p of humans){ const t=this.meta.away[p.id]; if(t&&!this.online(p.id)) out.push({at:t+AWAY_LOBBY_MS,run:()=>{ if(p.id===s.host){ this.passHost(); if(s.host===p.id) return false; } s.players=s.players.filter(x=>x.id!==p.id); delete this.sec[p.id]; delete this.meta.away[p.id]; return true; }}); }
+    }
+    if(s.phase==='play'){
+      const cur=s.players[s.turn];
+      if(cur){
+        const start=s.startAt||0, last=s.lastActAt||0, sp=(SPEED[R.speed]||SPEED.normal).bot;
+        const stepDelay=(s.step==='throw'?1000:750)*sp;
+        const away=!cur.bot&&(cur.left||(this.meta.away[cur.id]&&!this.online(cur.id)));
+        if(cur.bot) out.push({at:Math.max(start,last+stepDelay),run:()=>this.botStep(cur.id,lvlOf(s,cur))});
+        else if(away) out.push({at:Math.max(start,last+stepDelay,(this.meta.away[cur.id]||0)+AWAY_PLAY_MS),run:()=>this.botStep(cur.id,'normal')});
+        else if(R.turnTimer) out.push({at:Math.max(start,s.turnAt||start)+R.turnTimer*1000+400,run:()=>this.timeoutStep(cur.id)});
+      }
+    }
+    if(s.phase==='reveal'&&R.autoNext&&s.revealAt) out.push({at:s.revealAt+NEXT_ROUND_MS,run:()=>{ s.v_round=(s.v_round||0)+1; startRound(s); return true; }});
+    if(s.phase==='over'&&s.overAt) out.push({at:s.overAt+LOBBY_AFTER_MS,run:()=>{ this.toLobby(); return true; }});
+    return out;
+  }
+  botStep(id,lvl){
+    const s=this.s;
+    if(s.step==='throw'){
+      if(botWantsBalls(s,id,lvl)) return !doBalls(s,id);
+      const h=s.hands[id]; const stuck=(s.turnsTaken[id]||0)>25&&Math.random()<.3;
+      return !doThrow(s,id,stuck?[h[Math.floor(Math.random()*h.length)]]:botThrowFor(s,id,lvl));
+    }
+    const [src,card]=botDraw(s,id,lvl); return !doDraw(s,id,src,card);
+  }
+  timeoutStep(id){
+    const s=this.s, nm=(s.players.find(p=>p.id===id)||{}).name;
+    if(s.step==='throw'&&doThrow(s,id,botThrow(s.hands[id]))) return false;
+    if(doDraw(s,id,'deck')) return false;
+    addLog(s,{t:'timeout',n:nm}); return true;
+  }
+  async alarm(){
+    await this.load(); if(!this.s) return;
+    let changed=false;
+    for(let i=0;i<8;i++){
+      const now=Date.now();
+      const due=this.dueList().filter(d=>d.at<=now).sort((a,b)=>a.at-b.at)[0];
+      if(!due) break;
+      useRules(this.s);
+      const r=due.run();
+      if(r==='close') return this.close();
+      if(!r) break;
+      this.s.v=(this.s.v||0)+1; this.s.lastActAt=Date.now(); changed=true;
+    }
+    if(changed){ await this.save(); this.broadcast(); await this.listing(); }
+    await this.schedule();
+  }
+  async schedule(){
+    const next=this.dueList().sort((a,b)=>a.at-b.at)[0];
+    if(next) await this.ctx.storage.setAlarm(Math.max(Date.now()+50,next.at)); else await this.ctx.storage.deleteAlarm();
+  }
+  async close(){
+    try{ await this.unlist(); }catch(e){}
+    for(const w of this.sockets()){ try{ w.close(1000,'closed'); }catch(e){} }
+    await this.ctx.storage.deleteAlarm(); await this.ctx.storage.deleteAll();
+    this.s=null; this.sec={}; this.chat=[]; this.meta={away:{},listed:null,code:this.meta.code};
+  }
+
+  /* ---- public table list ---- */
+  lobbyStub(){ return this.env.LOBBY.get(this.env.LOBBY.idFromName('lobby')); }
+  async listing(){
+    const s=this.s; if(!s) return;
+    const R=deriveRules(s.rules);
+    if(s.phase==='lobby'&&R.pub){
+      const host=s.players.find(p=>p.id===s.host);
+      const info={n:host?host.name:'Host',p:s.players.length,m:R.maxPlayers,s:this.meta.sum||''};
+      const sig=JSON.stringify(info);
+      if(sig!==this.meta.listed){ this.meta.listed=sig; await this.save(); await this.lobbyStub().fetch('https://lobby/',{method:'POST',body:JSON.stringify({code:s.code,info})}); }
+    } else if(this.meta.listed){ await this.unlist(); }
+  }
+  async unlist(){ const code=(this.s&&this.s.code)||this.meta.code; this.meta.listed=null; if(code) await this.lobbyStub().fetch('https://lobby/',{method:'POST',body:JSON.stringify({code,drop:true})}); }
+}
+
+function sanitizeRules(r){
+  const d=DEFAULT_RULES, x={...d}; r=r&&typeof r==='object'?r:{};
+  const num=(k,lo,hi)=>{ const v=Number(r[k]); if(Number.isFinite(v)&&v>=lo&&v<=hi) x[k]=Math.round(v); };
+  num('startHand',3,8); num('decks',1,3); num('jokers',0,4); num('maxPlayers',2,8); num('callMax',0,15); num('falsePenalty',0,100);
+  num('elimAt',20,500); num('jokerVal',-10,60); num('jackVal',-10,20); num('turnTimer',0,120);
+  if(['relaxed','normal','fast'].includes(r.speed)) x.speed=r.speed;
+  if(BOT_LEVELS.includes(r.botLevel)) x.botLevel=r.botLevel;
+  x.autoNext=r.autoNext!==false; x.pub=!!r.pub;
+  for(const k of ['resetA','resetB']){ const v=r[k]; if(v&&typeof v==='object'){ const f=Number(v.from), t=Number(v.to); if(Number.isFinite(f)&&Number.isFinite(t)) x[k]={on:!!v.on,from:Math.round(f),to:Math.round(t)}; } }
+  return x;
+}
