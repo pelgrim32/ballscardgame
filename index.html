@@ -667,8 +667,10 @@ html.compact:not(.skin-classic) .screen{padding-block:6px}
 let lang=(()=>{ try{ const v=localStorage.getItem('balls.lang'); if(v==='nl'||v==='en') return v; }catch(e){} return /^nl\b/i.test(navigator.language||'')?'nl':'en'; })();
 const L=(en,nl)=>lang==='nl'?nl:en;
 const GAME=()=>L('Balls!','Balzakken');
-const VERSION='1.5.0';
+const VERSION='1.5.1';
 const DEVLOG=[
+  {v:'1.5.1',d:'10-11-2026',en:['The next round starts after 5 seconds instead of 15','Online tables can now run on our own game server (test page: beta.html)'],
+                            nl:['De volgende ronde begint na 5 seconden in plaats van 15','Online tafels kunnen nu op onze eigen spelserver draaien (testpagina: beta.html)']},
   {v:'1.5.0',d:'10-11-2026',en:['Dutch translation: the game becomes Balzakken and you call Balzak','Bots have three difficulties: easy, normal and hard. Online, the host picks each bot\'s difficulty in the lobby','Version number and this dev log','Bot names are new','High-contrast cards removed'],
                             nl:['Nederlandse vertaling: het spel heet Balzakken en je roept Balzak','Bots hebben drie moeilijkheden: makkelijk, normaal en moeilijk. Online kiest de host per bot de moeilijkheid in de lobby','Versienummer en dit ontwikkellogboek','Nieuwe namen voor de bots','Kaarten met hoog contrast verwijderd']},
   {v:'1.4.0',d:'10-11-2026',en:['Ready up before the host can start','Next round starts by itself after 15 seconds, even if the host is away','Bots play much better: they count cards and call Balls on the odds','Chat messages pop up over the player with a sound','The table fits any window size','Rewritten tutorial'],
@@ -750,7 +752,7 @@ function startRound(s){
 }
 function canCall(s,id){ return s.phase==='play' && roundLive(s) && s.step==='throw' && s.players[s.turn].id===id && handVal(s.hands[id])<=RULES.callMax && (s.turnsTaken[id]||0)>0; }
 const roundLive = s => !s.startAt || Date.now() >= s.startAt;
-const LOBBY_AFTER_MS=60000, NEXT_ROUND_MS=15000;
+const LOBBY_AFTER_MS=60000, NEXT_ROUND_MS=5000;
 function resetToLobby(s){ s.phase='lobby'; s.round=0; s.result=null; s.players.forEach(p=>{p.score=0;p.out=false;p.ready=false;}); s.hands={}; s.log=[]; s.history=[]; s.stats={}; s.overAt=null; }
 const isReady=(s,p)=>p.bot||p.id===s.host||!!p.ready;
 const notReady=s=>s.players.filter(p=>!isReady(s,p));
@@ -1530,7 +1532,7 @@ const HOWTO_EN=`      <h4>Goal</h4>
       <h4>Playing online</h4>
       <ul><li><b>Create table</b> and share the 4-letter code, or switch on <b>Public table</b> so it shows under Open tables.</li>
       <li>Everyone taps <b>Ready up</b>, then the host starts. The host can add bots and change the table rules.</li>
-      <li>After each round the next one starts by itself after 15 seconds. The host can switch that off.</li>
+      <li>After each round the next one starts by itself after 5 seconds. The host can switch that off.</li>
       <li>Use the chat button for messages and reactions.</li></ul>
       <h4>Handy</h4>
       <ul><li>Tap the <b>i</b> on the table to see the card values and rules for that table.</li>
@@ -1560,7 +1562,7 @@ const HOWTO_NL=`<h4>Doel</h4>
       <h4>Online spelen</h4>
       <ul><li>Tik op <b>Tafel maken</b> en deel de code van 4 letters, of zet <b>Openbare tafel</b> aan zodat de tafel bij Open tafels staat.</li>
       <li>Iedereen tikt op <b>Ik ben klaar</b>, daarna start de host. De host kan bots toevoegen en de tafelregels aanpassen.</li>
-      <li>Na elke ronde begint de volgende vanzelf na 15 seconden. De host kan dat uitzetten.</li>
+      <li>Na elke ronde begint de volgende vanzelf na 5 seconden. De host kan dat uitzetten.</li>
       <li>Met de chatknop stuur je berichten en reacties.</li></ul>
       <h4>Handig</h4>
       <ul><li>Tik op de <b>i</b> op tafel voor de kaartwaarden en regels van die tafel.</li>
@@ -1770,7 +1772,7 @@ function rulesFormHTML(r,{editable=true,online=false}={}){
   const reset=(key,lab)=>`<label class="rreset"><input type="checkbox" id="ru-${key}-on" ${r[key].on?'checked':''} ${dis}> ${lab}</label>
     <span class="rreset-n">${L('exactly','precies')} <input type="number" inputmode="numeric" id="ru-${key}-from" value="${r[key].from}" ${dis}> → <input type="number" inputmode="numeric" id="ru-${key}-to" value="${r[key].to}" ${dis}></span>`;
   return `<div class="rgrid rules-form">
-    <label for="ru-autoNext">${L('Next round','Volgende ronde')}</label><label class="switch"><input type="checkbox" id="ru-autoNext" ${r.autoNext?'checked':''} ${dis}> <span>${r.autoNext?L('Starts by itself after 15s','Start vanzelf na 15 s'):L('Host deals','Host deelt')}</span></label>
+    <label for="ru-autoNext">${L('Next round','Volgende ronde')}</label><label class="switch"><input type="checkbox" id="ru-autoNext" ${r.autoNext?'checked':''} ${dis}> <span>${r.autoNext?L('Starts by itself after 5s','Start vanzelf na 5 s'):L('Host deals','Host deelt')}</span></label>
     ${online?`<label for="ru-pub">${L('Public table','Openbare tafel')}</label><label class="switch"><input type="checkbox" id="ru-pub" ${r.pub?'checked':''} ${dis}> <span>${r.pub?L('Listed in Open tables','Zichtbaar bij Open tafels'):L('Code only','Alleen met code')}</span></label>`:''}
     ${RULE_FIELDS.map(sel).join('')}
     ${reset('resetA',L('Score reset 1','Score-reset 1'))}
@@ -1862,7 +1864,7 @@ function infoHTML(){
   return `<h4>${L('Card values','Kaartwaarden')}</h4>
   <dl><dt>${L('Ace','Aas')}</dt><dd>1</dd><dt>2 – 10</dt><dd>${L('face value','kaartwaarde')}</dd><dt>${L('Jack','Boer')}</dt><dd>${sg(R.jackVal)}</dd><dt>${L('Queen, King','Vrouw, Heer')}</dt><dd>10</dd>${R.jokers?`<dt>Joker</dt><dd>${sg(R.jokerVal)}</dd>`:''}</dl>
   <h4>${L('This table','Deze tafel')}</h4>
-  <dl><dt>${L('Next round','Volgende ronde')}</dt><dd>${R.autoNext?L('auto after 15s','vanzelf na 15 s'):L('host deals','host deelt')}</dd><dt>${L('Call Balls at','Balzak roepen bij')}</dt><dd>${R.callMax}${L(' or less',' of minder')}</dd><dt>${L('False Balls','Valse Balzak')}</dt><dd>+${R.falsePenalty}</dd><dt>${L('Out at','Uit bij')}</dt><dd>${R.elimAt}</dd>${Object.entries(R.resets).map(([a,b])=>`<dt>${L('Exactly','Precies')} ${a}</dt><dd>${L('back to','terug naar')} ${b}</dd>`).join('')}<dt>Bots</dt><dd>${lvlName(R.botLevel)}</dd><dt>${L('Cards each','Kaarten per speler')}</dt><dd>${R.startHand}</dd><dt>${L('Decks','Kaartspellen')}</dt><dd>${R.decks}${R.jokers?` · ${R.jokers} ${L('jokers each','jokers per spel')}`:L(' · no jokers',' · geen jokers')}</dd>${R.turnTimer?`<dt>${L('Turn timer','Beurttimer')}</dt><dd>${R.turnTimer}s</dd>`:''}</dl>`;
+  <dl><dt>${L('Next round','Volgende ronde')}</dt><dd>${R.autoNext?L('auto after 5s','vanzelf na 5 s'):L('host deals','host deelt')}</dd><dt>${L('Call Balls at','Balzak roepen bij')}</dt><dd>${R.callMax}${L(' or less',' of minder')}</dd><dt>${L('False Balls','Valse Balzak')}</dt><dd>+${R.falsePenalty}</dd><dt>${L('Out at','Uit bij')}</dt><dd>${R.elimAt}</dd>${Object.entries(R.resets).map(([a,b])=>`<dt>${L('Exactly','Precies')} ${a}</dt><dd>${L('back to','terug naar')} ${b}</dd>`).join('')}<dt>Bots</dt><dd>${lvlName(R.botLevel)}</dd><dt>${L('Cards each','Kaarten per speler')}</dt><dd>${R.startHand}</dd><dt>${L('Decks','Kaartspellen')}</dt><dd>${R.decks}${R.jokers?` · ${R.jokers} ${L('jokers each','jokers per spel')}`:L(' · no jokers',' · geen jokers')}</dd>${R.turnTimer?`<dt>${L('Turn timer','Beurttimer')}</dt><dd>${R.turnTimer}s</dd>`:''}</dl>`;
 }
 function statsHTML(){
   const st=S.stats||{}, g=(id,k)=>(st[id]&&st[id][k])||0;
@@ -1943,7 +1945,7 @@ function claudeChat(db){
 }
 
 /* ---- after a finished game everyone goes back to the lobby ---- */
-/* ---- rounds deal themselves after 15s (table rule, on by default), even if the host is away ---- */
+/* ---- rounds deal themselves after 5s (table rule, on by default), even if the host is away ---- */
 let nextDone=null;
 setInterval(()=>{
   if(!S||S.phase!=='reveal'||!S.result||!S.revealAt||!deriveRules(S.rules).autoNext) return;
