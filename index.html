@@ -75,6 +75,11 @@ input.txt::placeholder{color:rgba(255,255,255,.35)}
 details.rules{width:100%;max-width:380px}
 details.rules summary{cursor:pointer;font-weight:700;font-size:18px;padding:8px 0;color:var(--gold);text-transform:uppercase;letter-spacing:.05em}
 details.rules ul{margin:4px 0 0;padding-left:18px;color:var(--ink-dim);line-height:1.45;font-size:15px}
+.howto{display:flex;flex-direction:column;gap:2px;padding-bottom:6px}
+.howto h4{margin:10px 0 2px;font-size:15px;font-weight:700;color:var(--ink);text-transform:uppercase;letter-spacing:.06em}
+.howto p{margin:2px 0;color:var(--ink-dim);line-height:1.45;font-size:15px}
+.howto ul{margin:0}
+.howto .credit{margin-top:12px;font-size:12px}
 details.rules b{color:var(--ink)}
 
 /* ---------- lobby ---------- */
@@ -532,7 +537,19 @@ html .deck .card{position:absolute;left:0;top:0}
 .chatlog .me b{color:var(--gold)}
 .chatlog .empty{color:var(--ink-dim);margin:auto;text-align:center}
 .bubble.react{font-size:30px;padding:2px 8px;border-color:transparent;background:rgba(0,0,0,.35);box-shadow:none}
-.bubble.say{white-space:normal;max-width:220px;text-align:center;border-color:var(--line)}
+.bubble.say{--be:var(--line);white-space:normal;max-width:240px;text-align:left;font-weight:500;font-size:14px;line-height:1.3;padding:6px 10px;border-color:var(--be);border-radius:12px;margin-top:-10px;animation-duration:3s;z-index:17}
+.bubble.say b{font-weight:700;color:var(--gold)}
+.bubble.say::after{content:"";position:absolute;left:50%;bottom:-9px;transform:translateX(-50%);border:8px solid transparent;border-bottom:0;border-top-color:var(--be)}
+@keyframes bub{0%{opacity:0;margin-top:-4px}10%{opacity:1;margin-top:-10px}85%{opacity:1}100%{opacity:0;margin-top:-16px}}
+.ui-felt .bubble.say{--be:#ffcf2e;border-radius:14px}
+.ui-felt .bubble.say b{color:#ffcf2e}
+.skin-classic .bubble.say{--be:var(--brass);border-radius:8px}
+.skin-classic .bubble.say b{color:var(--brass)}
+.skin-neon .bubble.say{--be:#ff2bd6;box-shadow:0 0 12px rgba(255,43,214,.5)}
+.skin-neon .bubble.say b{color:#00e5ff}
+.skin-sketch .bubble.say{--be:var(--line);background:#fff}
+.skin-sketch .bubble.say b{color:var(--red)}
+.skin-pixel .bubble.say,html:not(.ui-felt):not(.skin-neon):not(.skin-sketch):not(.skin-classic) .bubble.say{border-radius:6px}
 .skin-sketch #chatlayer{background:rgba(247,242,228,.7)}
 .skin-classic .chatlog,.skin-classic .reacts button{background:#1d110a}
 .ui-felt .chatlog,.ui-felt .reacts button{background:rgba(0,0,0,.3)}
@@ -640,7 +657,7 @@ html.compact:not(.skin-classic) .screen{padding-block:6px}
 const SUITS = ['H','D','C','S'], RANKS = ['A','2','3','4','5','6','7','8','9','10','J','Q','K'];
 const SYM = {H:'♥',D:'♦',C:'♣',S:'♠'};
 const DEFAULT_RULES = { startHand:5, decks:1, jokers:4, maxPlayers:6, callMax:5, falsePenalty:25, elimAt:101, jokerVal:25, jackVal:-1,
-  resetA:{on:true,from:100,to:70}, resetB:{on:true,from:69,to:0}, speed:'normal', turnTimer:0, pub:false };
+  resetA:{on:true,from:100,to:70}, resetB:{on:true,from:69,to:0}, speed:'normal', turnTimer:0, autoNext:true, pub:false };
 const SPEED = { relaxed:{cd:5000,bot:1.5}, normal:{cd:3000,bot:1}, fast:{cd:2000,bot:.55} };
 function deriveRules(r){
   const x={...DEFAULT_RULES,...(r||{})}; const resets={};
@@ -686,7 +703,7 @@ function startRound(s){
 }
 function canCall(s,id){ return s.phase==='play' && roundLive(s) && s.step==='throw' && s.players[s.turn].id===id && handVal(s.hands[id])<=RULES.callMax && (s.turnsTaken[id]||0)>0; }
 const roundLive = s => !s.startAt || Date.now() >= s.startAt;
-const LOBBY_AFTER_MS=60000;
+const LOBBY_AFTER_MS=60000, NEXT_ROUND_MS=15000;
 function resetToLobby(s){ s.phase='lobby'; s.round=0; s.result=null; s.players.forEach(p=>{p.score=0;p.out=false;p.ready=false;}); s.hands={}; s.log=[]; s.history=[]; s.stats={}; s.overAt=null; }
 const isReady=(s,p)=>p.bot||p.id===s.host||!!p.ready;
 const notReady=s=>s.players.filter(p=>!isReady(s,p));
@@ -754,7 +771,7 @@ function doBalls(s,id){
   bump(s,id,falseB?'falseB':'balls'); if(winner!==null) bump(s,winner,'wins');
   s.history=[...(s.history||[]),{round:s.round,caller:id,falseB,winner,rows:Object.fromEntries(rows.map(x=>[x.id,{gain:x.gain,after:x.after,out:x.notes.includes('Eliminated')}]))}];
   s.phase = aliveList(s).length<=1 ? 'over' : 'reveal';
-  if(s.phase==='over') s.overAt=Date.now();
+  if(s.phase==='over') s.overAt=Date.now(); else s.revealAt=Date.now();
 }
 
 /* ---- bots ---- */
@@ -971,6 +988,9 @@ const SFX={
   grab(delayMs=0){ const a=audio(); if(!a||!sfxOn||a.state!=='running') return; const t=a.currentTime+delayMs/1000;
     if(!cardBuf){ noise(a,t,{freq:3800,freqEnd:1700,q:.5,gain:.2,attack:.035,decay:.06}); noise(a,t+.085,{freq:4300,q:2.2,gain:.34,attack:.001,decay:.02}); return; }
     playCard(a,t,0,0.98+Math.random()*.04,.85); },
+  /* chat message: a soft double pop */
+  chat(){ const a=audio(); if(!a||!sfxOn||a.state!=='running') return; const t=a.currentTime+.01;
+    tone(a,t,{f:880,fEnd:1100,type:'sine',gain:.11,dur:.07}); tone(a,t+.08,{f:1320,fEnd:1500,type:'sine',gain:.1,dur:.09}); },
   /* your turn: two soft rising chimes */
   turn(){ const a=audio(); if(!a||!sfxOn||a.state!=='running') return; const t=a.currentTime+.02;
     tone(a,t,{f:659,type:'triangle',gain:.12,dur:.16}); tone(a,t+.12,{f:988,type:'triangle',gain:.12,dur:.28}); tone(a,t+.12,{f:1976,type:'sine',gain:.03,dur:.2}); },
@@ -1085,13 +1105,13 @@ function fly(html,from,toEl,{delay=0,dur=480,toRect=null,fade=false}={}){
   ],{duration:dur,delay,easing:'cubic-bezier(.25,.8,.3,1)',fill:'both'});
   a.onfinish=finish; a.oncancel=finish;
 }
-function bubble(text,rect,kind){
+function bubble(text,rect,kind,ms=2300){
   if(!rect) return;
   const b=document.createElement('div'); b.className='bubble '+(kind||'');
-  b.textContent=text;
+  if(kind==='say'&&typeof text==='object'){ const nb=document.createElement('b'); nb.textContent=text.n+': '; b.append(nb,document.createTextNode(text.t)); } else b.textContent=text;
   b.style.left=Math.min(Math.max(rect.x,70),innerWidth-70)+'px';
   b.style.top=(rect.y-rect.h/2+4)+'px';
-  document.body.appendChild(b); setTimeout(()=>b.remove(),2300);
+  document.body.appendChild(b); setTimeout(()=>b.remove(),ms);
 }
 function animateMove(prev,cur,before){
   if(!cur||cur.phase!=='play'||prev.round!==cur.round) return;
@@ -1298,16 +1318,38 @@ function renderHome(){
     <div class="panel">
       <h2>Look</h2>${settingsHTML()}
     </div>
-    <details class="rules"><summary>How to play</summary><ul>
-      <li>56 cards (with 4 jokers). Everyone gets <b>5</b>. One card is turned face up.</li>
-      <li>Your turn: <b>throw</b> one card, or two or more of the same rank. Then <b>grab</b> one: from the deck, or a card the previous player threw.</li>
-      <li>Values: <b>J −1</b>, A 1, 2–10 face value, Q/K 10, <b>Joker 25</b>.</li>
-      <li>With <b>5 or less</b>, wait a turn, then call <b>Balls</b> at the start of your next turn. Lowest hand wins the round (0 points), everyone else adds their hand.</li>
-      <li>If anyone ties or beats the caller: <b>false Balls</b>, the caller gets <b>+25</b> (instead of their hand). One player tied or lower wins the round; if two or more did, nobody wins and a coin flip picks the dealer.</li>
-      <li>Hosts can change the numbers below under <b>Table rules</b>.</li>
-      <li>Landing on exactly <b>100</b> resets you to <b>70</b>. Landing on exactly <b>69</b> resets you to <b>0</b>. Reach <b>101+</b> and you're out. Last one standing wins.</li>
-      <li style="list-style:none;margin-left:-18px;margin-top:6px;font-size:12px">Pixel font “balatro” by localthunk, SIL Open Font License 1.1.</li>
-    </ul></details>
+    <details class="rules"><summary>How to play</summary><div class="howto">
+      <h4>Goal</h4>
+      <p>Keep your points low. Get your hand down to <b>5 or less</b> and call <b>Balls</b>. Players who reach <b>101</b> points are out, and the last one left wins.</p>
+      <h4>Setup</h4>
+      <ul><li>2 to 6 players (up to 8 with custom rules), one deck plus 4 jokers.</li>
+      <li>Everyone gets <b>5 cards</b>. One card goes face up next to the deck.</li>
+      <li>The player after the dealer starts, and play goes around the table.</li></ul>
+      <h4>Card values</h4>
+      <ul><li><b>Jack −1</b> · Ace 1 · 2 to 10 face value · Queen and King 10 · <b>Joker 25</b></li></ul>
+      <h4>Your turn</h4>
+      <ul><li><b>Throw</b> one card, or two or more cards of the same rank (a pair, three of a kind…).</li>
+      <li>Then <b>grab</b> one card: the top of the deck, or a card the player before you just threw.</li>
+      <li>When the deck runs out, everything except the last throw is shuffled into a new deck.</li></ul>
+      <h4>Calling Balls</h4>
+      <ul><li>Once your hand is <b>5 or less</b>, you can call Balls at the start of your next turn, before you throw. You can't call on your first turn of a round.</li>
+      <li>Everyone shows their hand. If you have the lowest, you win the round: you score 0 and everyone else adds their hand to their score.</li>
+      <li>A negative hand (from Jacks) always lowers your score, even when you win.</li></ul>
+      <h4>False Balls</h4>
+      <ul><li>If anyone ties or beats your hand, it's <b>false Balls</b>. You get <b>+25</b> instead of your hand.</li>
+      <li>If one player tied or beat you, they win the round. If two or more did, nobody wins, everyone else adds their hand, and a coin flip picks the next dealer.</li></ul>
+      <h4>Score resets</h4>
+      <ul><li>Land on exactly <b>100</b>: back to <b>70</b>. Land on exactly <b>69</b>: back to <b>0</b>.</li></ul>
+      <h4>Playing online</h4>
+      <ul><li><b>Create table</b> and share the 4-letter code, or switch on <b>Public table</b> so it shows under Open tables.</li>
+      <li>Everyone taps <b>Ready up</b>, then the host starts. The host can add bots and change the table rules.</li>
+      <li>After each round the next one starts by itself after 15 seconds. The host can switch that off.</li>
+      <li>Use the chat button for messages and reactions.</li></ul>
+      <h4>Handy</h4>
+      <ul><li>Tap the <b>i</b> on the table to see the card values and rules for that table.</li>
+      <li>The speaker button mutes sounds. Themes and high-contrast cards are in Settings.</li></ul>
+      <p class="credit">Pixel font “balatro” by localthunk, SIL Open Font License 1.1.</p>
+    </div></details>
   </div>`;
   const nameIn=$('#in-name');
   nameIn.oninput=()=>{ myName=nameIn.value.slice(0,14); store('balls.name',myName); };
@@ -1477,6 +1519,7 @@ function rulesFormHTML(r,{editable=true,online=false}={}){
   const reset=(key,lab)=>`<label class="rreset"><input type="checkbox" id="ru-${key}-on" ${r[key].on?'checked':''} ${dis}> ${lab}</label>
     <span class="rreset-n">exactly <input type="number" inputmode="numeric" id="ru-${key}-from" value="${r[key].from}" ${dis}> → <input type="number" inputmode="numeric" id="ru-${key}-to" value="${r[key].to}" ${dis}></span>`;
   return `<div class="rgrid rules-form">
+    <label for="ru-autoNext">Next round</label><label class="switch"><input type="checkbox" id="ru-autoNext" ${r.autoNext?'checked':''} ${dis}> <span>${r.autoNext?'Starts by itself after 15s':'Host deals'}</span></label>
     ${online?`<label for="ru-pub">Public table</label><label class="switch"><input type="checkbox" id="ru-pub" ${r.pub?'checked':''} ${dis}> <span>${r.pub?'Listed in Open tables':'Code only'}</span></label>`:''}
     ${RULE_FIELDS.map(sel).join('')}
     ${reset('resetA','Score reset 1')}
@@ -1489,6 +1532,7 @@ function readRulesForm(root,base){
   for(const k of ['resetA','resetB']){ const on=root.querySelector(`#ru-${k}-on`), f=root.querySelector(`#ru-${k}-from`), t=root.querySelector(`#ru-${k}-to`);
     if(on) r[k]={on:on.checked, from:Math.round(+f.value||0), to:Math.round(+t.value||0)}; }
   const pub=root.querySelector('#ru-pub'); if(pub) r.pub=pub.checked;
+  const an=root.querySelector('#ru-autoNext'); if(an) r.autoNext=an.checked;
   delete r.resets; return r;
 }
 function wireRulesForm(root,base,onChange){
@@ -1507,6 +1551,7 @@ function rulesSummary(r){
   if(JSON.stringify(R.resets)!==JSON.stringify(d.resets)) diff.push('custom resets');
   if(R.speed!=='normal') diff.push(R.speed);
   if(R.turnTimer) diff.push(R.turnTimer+'s turns');
+  if(!R.autoNext) diff.push('host deals');
   return diff.length?'Custom rules: '+diff.join(', '):'Standard rules';
 }
 function renderRulesSheet(){
@@ -1562,7 +1607,7 @@ function infoHTML(){
   return `<h4>Card values</h4>
   <dl><dt>Ace</dt><dd>1</dd><dt>2 – 10</dt><dd>face value</dd><dt>Jack</dt><dd>${sg(R.jackVal)}</dd><dt>Queen, King</dt><dd>10</dd>${R.jokers?`<dt>Joker</dt><dd>${sg(R.jokerVal)}</dd>`:''}</dl>
   <h4>This table</h4>
-  <dl><dt>Call Balls at</dt><dd>${R.callMax} or less</dd><dt>False Balls</dt><dd>+${R.falsePenalty}</dd><dt>Out at</dt><dd>${R.elimAt}</dd>${Object.entries(R.resets).map(([a,b])=>`<dt>Exactly ${a}</dt><dd>back to ${b}</dd>`).join('')}<dt>Cards each</dt><dd>${R.startHand}</dd><dt>Decks</dt><dd>${R.decks}${R.jokers?` · ${R.jokers} jokers each`:' · no jokers'}</dd>${R.turnTimer?`<dt>Turn timer</dt><dd>${R.turnTimer}s</dd>`:''}</dl>`;
+  <dl><dt>Next round</dt><dd>${R.autoNext?'auto after 15s':'host deals'}</dd><dt>Call Balls at</dt><dd>${R.callMax} or less</dd><dt>False Balls</dt><dd>+${R.falsePenalty}</dd><dt>Out at</dt><dd>${R.elimAt}</dd>${Object.entries(R.resets).map(([a,b])=>`<dt>Exactly ${a}</dt><dd>back to ${b}</dd>`).join('')}<dt>Cards each</dt><dd>${R.startHand}</dd><dt>Decks</dt><dd>${R.decks}${R.jokers?` · ${R.jokers} jokers each`:' · no jokers'}</dd>${R.turnTimer?`<dt>Turn timer</dt><dd>${R.turnTimer}s</dd>`:''}</dl>`;
 }
 function statsHTML(){
   const st=S.stats||{}, g=(id,k)=>(st[id]&&st[id][k])||0;
@@ -1596,7 +1641,8 @@ function onChatMsg(m,live){
   if(m.k==='r'){ if(live && REACTS.includes(text)) bubble(text,seatRect(m.id),'react'); return; }
   chatLog.push({id:m.id,n:String(m.n||'').slice(0,14),t:text}); if(chatLog.length>60) chatLog.shift();
   if(open) refreshChatLog();
-  if(live && m.id!==me){ if(!open){ chatUnread++; updateChatBadge(); bubble((m.n?m.n+': ':'')+(text.length>60?text.slice(0,60)+'…':text),seatRect(m.id),'say'); } }
+  if(live && m.id!==me){ SFX.chat(); if(!open){ chatUnread++; updateChatBadge(); }
+    bubble({n:m.n||'Someone',t:text.length>80?text.slice(0,80)+'…':text},seatRect(m.id),'say',3000); }
 }
 function startChat(code){
   stopChat(); chatStart=Date.now();
@@ -1642,6 +1688,22 @@ function claudeChat(db){
 }
 
 /* ---- after a finished game everyone goes back to the lobby ---- */
+/* ---- rounds deal themselves after 15s (table rule, on by default), even if the host is away ---- */
+let nextDone=null;
+setInterval(()=>{
+  if(!S||S.phase!=='reveal'||!S.result||!S.revealAt||!deriveRules(S.rules).autoNext) return;
+  const left=Math.ceil((S.revealAt+NEXT_ROUND_MS-Date.now())/1000);
+  const el=document.getElementById('next-left'); if(el) el.textContent=Math.max(0,left);
+  if(left>0||nextDone===S.result.id||busy) return;
+  const rid=S.result.id;
+  if(mode==='local'){ nextDone=rid; act(s=>{ s.v_round=(s.v_round||0)+1; startRound(s); }); return; }
+  if(mode!=='online'||!ref) return;
+  /* host deals first; anyone else steps in 3s later if the host is gone */
+  if(S.host!==me && left>-3) return;
+  nextDone=rid;
+  roomTxn(d=>{ if(d.phase!=='reveal'||!d.result||d.result.id!==rid) return false; useRules(d); d.v_round=(d.v_round||0)+1; startRound(d); })
+    .catch(()=>{ nextDone=null; });
+},500);
 let overDone=null;
 setInterval(()=>{
   if(!S||S.phase!=='over'||!S.overAt||!S.result) return;
@@ -1752,7 +1814,8 @@ function renderResult(){
     </div>`).join('')}</div>
     ${(canNext||over)
       ? `<button class="btn" id="b-next">${over?(mode==='local'?'New game':'Back to lobby'):'Deal next round'}</button>`
-      : `<p class="note">Waiting for ${esc(pname(S,S.host))} to deal…</p>`}
+      : (RULES.autoNext?'':`<p class="note">Waiting for ${esc(pname(S,S.host))} to deal…</p>`)}
+    ${!over&&RULES.autoNext?`<p class="note" style="text-align:center">Next round starts in <b id="next-left">${Math.max(0,Math.ceil(((S.revealAt||Date.now())+NEXT_ROUND_MS-Date.now())/1000))}</b>s</p>`:''}
     ${over?`<p class="note" style="text-align:center">Back to the ${mode==='online'?'lobby':'menu'} in <b id="over-left">${Math.max(0,Math.ceil(((S.overAt||Date.now())+LOBBY_AFTER_MS-Date.now())/1000))}</b>s</p>`:''}
     ${over?`<button class="btn ghost" id="b-home">${mode==='online'?'Leave table':'Main menu'}</button>`:''}
   </div></div>`;
