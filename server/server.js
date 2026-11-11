@@ -413,7 +413,7 @@ export class Table {
     const anyOnline=humans.some(p=>this.online(p.id));
     if(!anyOnline){ const since=Math.max(0,...humans.map(p=>this.meta.away[p.id]||0)); out.push({at:(since||now)+EMPTY_CLOSE_MS,run:()=>'close'}); }
     if(s.phase==='lobby'){
-      for(const p of humans){ const t=this.meta.away[p.id]; if(t&&!this.online(p.id)) out.push({at:t+AWAY_LOBBY_MS,run:()=>{ if(p.id===s.host){ this.passHost(); if(s.host===p.id) return false; } s.players=s.players.filter(x=>x.id!==p.id); delete this.sec[p.id]; delete this.meta.away[p.id]; return true; }}); }
+      for(const p of humans){ const t=this.meta.away[p.id]; if(t&&!this.online(p.id)) out.push({at:t+AWAY_LOBBY_MS,run:()=>{ if(p.id===s.host) this.passHost(); s.players=s.players.filter(x=>x.id!==p.id); delete this.sec[p.id]; delete this.meta.away[p.id]; return s.players.some(x=>!x.bot)?true:'close'; }}); }
     }
     const hp=s.players.find(p=>p.id===s.host);
     if(s.phase!=='lobby'&&hp&&!hp.bot&&!this.online(hp.id)&&this.meta.away[hp.id]&&humans.some(p=>p.id!==hp.id&&this.online(p.id)))
@@ -458,7 +458,9 @@ export class Table {
       useRules(this.s);
       const r=due.run();
       if(r==='close') return this.close();
-      if(!r) break;
+      /* a step that can't go through waits a little longer each time, so a stuck table never spins */
+      if(!r){ this.meta.stuck=(this.meta.stuck||0)+1; this.meta.waitUntil=Date.now()+Math.min(60000,1000*2**this.meta.stuck); changed=true; break; }
+      this.meta.stuck=0; this.meta.waitUntil=0;
       this.s.v=(this.s.v||0)+1; this.s.lastActAt=Date.now(); changed=true;
     }
     if(changed){ await this.record(); await this.save(); this.broadcast(); await this.listing(); }
@@ -466,7 +468,7 @@ export class Table {
   }
   async schedule(){
     const next=this.dueList().sort((a,b)=>a.at-b.at)[0];
-    if(next) await this.ctx.storage.setAlarm(Math.max(Date.now()+50,next.at)); else await this.ctx.storage.deleteAlarm();
+    if(next) await this.ctx.storage.setAlarm(Math.max(Date.now()+250,next.at,this.meta.waitUntil||0)); else await this.ctx.storage.deleteAlarm();
   }
   async close(){
     try{ await this.unlist(); }catch(e){}
