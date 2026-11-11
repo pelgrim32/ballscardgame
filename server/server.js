@@ -67,7 +67,7 @@ async function route(req, env){
       return new Response(await r.text(),{status:r.status,headers:{'content-type':'application/json',...CORS}});
     }
     /* developer tools: only the account with the dev role gets past the check */
-    const adm=url.pathname.match(/^\/api\/admin\/(usage|get|save|list)$/);
+    const adm=url.pathname.match(/^\/api\/admin\/(usage|get|save|list|ach)$/);
     if(adm){
       if(req.method!=='POST') return json({error:'Use POST.'},405);
       const body=await req.text(); let b={}; try{ b=JSON.parse(body)||{}; }catch(e){}
@@ -144,7 +144,7 @@ export class Accounts {
     let b={}; try{ b=await req.json()||{}; }catch(e){}
     const out=(o,status=200)=>new Response(JSON.stringify(o),{status,headers:{'content-type':'application/json'}});
     const no=(code,status=400)=>out({error:code},status);
-    const pub=u=>({name:u.name,wins:u.wins||0,losses:u.losses||0,played:u.played||0,since:u.created,ach:u.ach||{},dev:u.role==='dev',streak:u.streak||0,best:u.best||0,poker:u.poker||{}});
+    const pub=u=>({name:u.name,wins:u.wins||0,losses:u.losses||0,played:u.played||0,since:u.created,ach:u.ach||{},dev:u.role==='dev',streak:u.streak||0,best:u.best||0,poker:u.poker||{},log:u.log||[]});
     /* unlock achievements; "all" follows once every other one is in (the dev can't play against himself) */
     const grant=(u,ids)=>{
       u.ach=u.ach||{}; const fr=[];
@@ -208,6 +208,13 @@ export class Accounts {
         users.sort((a,b)=>b.played-a.played||a.name.localeCompare(b.name));
         return out({users,count:users.length});
       }
+      case 'admin-ach': {
+        const u=await st.get(keyOf(b.name)); if(!u) return no('nouser',404);
+        if(!ACH_IDS.includes(b.id)) return no('noach');
+        u.ach={...(u.ach||{})}; if(b.on) u.ach[b.id]=u.ach[b.id]||Date.now(); else delete u.ach[b.id];
+        await st.put(keyOf(u.name),u);
+        return out({user:{...pub(u),uid:u.uid,role:u.role||'player'}});
+      }
       case 'admin-get': { const u=await st.get(keyOf(b.name)); return u?out({user:{...pub(u),uid:u.uid,role:u.role||'player'}}):no('nouser',404); }
       case 'admin-save': {
         const u=await st.get(keyOf(b.name)); if(!u) return no('nouser',404);
@@ -232,11 +239,16 @@ export class Accounts {
         const done={}, fresh={};
         for(const r of (Array.isArray(b.results)?b.results:[])){
           const u=await st.get(keyOf(r.name)); if(!u||u.uid!==r.uid||done[u.uid]) continue;
-          u.played=(u.played||0)+1; if(r.win) u.wins=(u.wins||0)+1; else u.losses=(u.losses||0)+1;
-          u.streak=r.win?(u.streak||0)+1:0; u.best=Math.max(u.best||0,u.streak);
-          const ids=[]; for(const [n,a] of [[10,'m10'],[50,'m50']]) if(u.played>=n) ids.push(a);
-          for(const [n,a] of [[5,'s5'],[10,'s10'],[25,'s25']]) if(u.streak>=n) ids.push(a);
-          const fr=grant(u,ids);
+          let fr=[];
+          if(r.counted!==false){
+            u.played=(u.played||0)+1; if(r.win) u.wins=(u.wins||0)+1; else u.losses=(u.losses||0)+1;
+            u.streak=r.win?(u.streak||0)+1:0; u.best=Math.max(u.best||0,u.streak);
+            const ids=[]; for(const [n,a] of [[10,'m10'],[50,'m50']]) if(u.played>=n) ids.push(a);
+            for(const [n,a] of [[5,'s5'],[10,'s10'],[25,'s25']]) if(u.streak>=n) ids.push(a);
+            fr=grant(u,ids);
+          }
+          /* match log: the last 5 online matches, counted or not */
+          if(r.entry&&typeof r.entry==='object') u.log=[r.entry,...(u.log||[])].slice(0,5);
           await st.put(keyOf(u.name),u); done[u.uid]=pub(u); fresh[u.uid]=fr;
         }
         return out({users:done,fresh});
@@ -507,16 +519,19 @@ export class Table {
   async record(){
     this.achRound(); this.achPoker(); await this.achFlush();
     const s=this.s;
-    if(!s||s.phase!=='over'||!s.ranked||!s.result||this.meta.recorded===s.result.id) return;
+    if(!s||s.phase!=='over'||!s.result||this.meta.recorded===s.result.id) return;
     this.meta.recorded=s.result.id;
     const place=placings(s), acct=this.meta.acct||{}, results=[], byUid={};
-    for(const p of s.players){ const a=acct[p.id]; if(p.bot||!a) continue; results.push({uid:a.uid,name:a.name,win:place[p.id]===1}); byUid[a.uid]=p.id; }
+    const players=s.players.map(p=>({n:p.name,sc:p.score,bot:!!p.bot,pl:place[p.id]||null,out:!!p.out,k:!!p.kicked}));
+    for(const p of s.players){ const a=acct[p.id]; if(p.bot||!a) continue;
+      const entry={at:Date.now(),mode:s.mode==='standard'?'standard':'custom',counted:!!s.ranked,rounds:s.round,place:place[p.id]||null,win:place[p.id]===1,score:p.score,kicked:!!p.kicked,players};
+      results.push({uid:a.uid,name:a.name,win:place[p.id]===1,counted:!!s.ranked,entry}); byUid[a.uid]=p.id; }
     if(!results.length) return;
     try{
       const r=await this.acctStub().fetch('https://acct/result',{method:'POST',body:JSON.stringify({results})});
       const {users,fresh}=await r.json();
-      for(const [uid,user] of Object.entries(users||{})){ const pid=byUid[uid]; const win=results.find(x=>x.uid===uid).win;
-        for(const w of this.sockets()) if(this.att(w).id===pid) this.sendTo(w,{t:'record',win,user,fresh:(fresh||{})[uid]||[]}); }
+      for(const [uid,user] of Object.entries(users||{})){ const pid=byUid[uid]; const x=results.find(y=>y.uid===uid);
+        for(const w of this.sockets()) if(this.att(w).id===pid) this.sendTo(w,{t:'record',win:x.win,counted:x.counted,user,fresh:(fresh||{})[uid]||[]}); }
     }catch(e){}
   }
 

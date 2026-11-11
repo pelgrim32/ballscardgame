@@ -69,6 +69,27 @@ input.txt::placeholder{color:rgba(255,255,255,.35)}
 .rgrid .rnote{grid-column:1/-1;margin:-4px 0 0}
 .modebtn{display:flex;flex-direction:column;align-items:flex-start;gap:3px;text-align:left;padding:12px 14px}
 .modebtn b{font-size:19px}.modebtn span{font-size:14px;font-weight:400;line-height:1.3;opacity:.9}
+.devsheet{max-width:560px}.devtabs .btn{flex:1;font-size:16px}
+.devbars{display:flex;flex-direction:column;gap:10px}
+.devbar-top{display:flex;justify-content:space-between;gap:8px;font-size:15px}.devbar small{color:var(--ink-dim);font-size:13px}
+.devbar-track{height:10px;border-radius:999px;background:var(--panel-lo);overflow:hidden;margin:4px 0 2px}.devbar-track i{display:block;height:100%;background:var(--green,#3fae5a)}
+.devbar.warm .devbar-track i{background:#e0a526}.devbar.hot .devbar-track i{background:var(--red)}
+.devnums{display:grid;grid-template-columns:repeat(auto-fill,minmax(90px,1fr));gap:8px}.devnums label{display:flex;flex-direction:column;font-size:13px;gap:2px}.devnums .txt{padding:6px 8px}
+.devchecks{display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:4px 10px;font-size:14px}.devchecks label{display:flex;gap:6px;align-items:center}
+.devmini{padding:2px 10px;font-size:13px;margin-left:6px}
+.devusers li{display:flex;align-items:center;justify-content:space-between;gap:8px}.devusers .btn{padding:4px 10px;font-size:15px}
+.mlog{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:6px}
+.mlog li{background:var(--panel-lo);border-radius:8px;padding:7px 10px;display:flex;flex-direction:column;gap:2px}
+.mlog li.win{box-shadow:inset 3px 0 0 var(--gold)}
+.mlog-top{display:flex;align-items:center;gap:8px;flex-wrap:wrap}.mlog-top .note{margin-left:auto;font-size:13px}
+.mlog small{font-size:13px;color:var(--ink-dim);line-height:1.3}
+.mlog-tag{font-size:12px;padding:1px 7px;border-radius:999px;background:rgba(127,127,127,.25)}.mlog-tag.std{background:var(--gold);color:#2a1d00}
+.ui-felt .mlog li{background:rgba(0,0,0,.3)}
+.devach{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:5px}
+.devach li{display:grid;grid-template-columns:1fr auto auto;align-items:center;gap:8px;background:var(--panel-lo);border-radius:8px;padding:6px 9px;opacity:.6}
+.devach li.got{opacity:1}.devach li>span:first-child{display:flex;flex-direction:column;min-width:0}.devach small{font-size:12px;color:var(--ink-dim)}
+.devach-st{font-size:12px;text-align:right;color:var(--ink-dim);white-space:nowrap}.devach li.got .devach-st{color:var(--gold)}
+.devraw{max-height:240px;overflow:auto;font-size:11px;white-space:pre-wrap;word-break:break-all;background:rgba(0,0,0,.3);padding:8px;border-radius:6px}
 .tablekind{margin:0;font-weight:700;color:var(--ink-dim)}.tablekind.std{color:var(--gold)}
 .rgrid input[type=checkbox]{accent-color:var(--gold);width:18px;height:18px;vertical-align:-3px}
 .rgrid .switch{display:flex;align-items:center;gap:6px;justify-self:end;font-size:13px;color:var(--ink-dim)}
@@ -655,8 +676,10 @@ html.compact:not(.skin-classic) .screen{padding-block:6px}
 let lang=(()=>{ try{ const v=localStorage.getItem('balls.lang'); if(v==='nl'||v==='en') return v; }catch(e){} return /^nl\b/i.test(navigator.language||'')?'nl':'en'; })();
 const L=(en,nl)=>lang==='nl'?nl:en;
 const GAME=()=>L('Balls!','Balzakken');
-const VERSION='1.8.0';
+const VERSION='1.9.0';
 const DEVLOG=[
+  {v:'1.9.0',d:'11-11-2026',en:['Match log: your last 5 online matches on your account screen','Steadier connection: a dropped connection at a table is noticed and restored by itself','Turn timer: when your time runs out, the game plays your turn as a Hard bot (it never calls Balls)','Three timeouts in a row and you are removed from the match; your cards go to the discard pile'],
+                            nl:['Potjeslog: je laatste 5 online potjes op je accountscherm','Stabielere verbinding: als je verbinding aan tafel wegvalt, merkt het spel dat en herstelt het hem zelf','Beurttimer: als je tijd op is, speelt het spel je beurt als een moeilijke bot (die nooit Balzak roept)','Drie keer achter elkaar te laat en je wordt uit het potje gehaald; je kaarten gaan naar de aflegstapel']},
   {v:'1.8.0',d:'11-11-2026',en:['When you create a table you choose Standard or Custom','Standard tables count for win/loss and achievements; Custom tables let you set every rule'],
                             nl:['Bij een nieuwe tafel kies je Standaard of Eigen regels','Standaardtafels tellen mee voor winst/verlies en prestaties; bij eigen regels stel je alles zelf in']},
   {v:'1.7.0',d:'11-11-2026',en:['Online play is back on the game server, with accounts, win/loss and achievements','Win streaks','Collect all 9 poker hands','10 new achievements, including streaks, playing giel and Completionist','Game mode Hot potato: one Joker that the next player has to take','Fits better in smaller and shorter windows','Dutch translation fixes'],
@@ -732,12 +755,42 @@ function fmtLog(e){
       return {who:e.n,rest:L(` threw ${th} · ${e.src==='deck'?'drew from the deck':'took '+label(e.g)+' from the last throw'}`,` gooide ${th} · ${e.src==='deck'?'pakte van de stapel':'pakte '+label(e.g)+' van de laatste worp'}`)}; }
     case 'shuffle': return {who:'',rest:L('Deck ran out, the table was reshuffled','Stapel op, er is opnieuw geschud')};
     case 'balls': return {who:e.n,rest:e.f?L(' called false Balls',' riep valse Balzak'):L(' called Balls and won the round',' riep Balzak en won de ronde')};
-    case 'timeout': return {who:e.n,rest:L(' ran out of time',' had geen tijd meer')};
+    case 'timeout': return {who:e.n,rest:e.k?L(` ran out of time (${e.k}/${TIMEOUT_KICK})`,` had geen tijd meer (${e.k}/${TIMEOUT_KICK})`):L(' ran out of time',' had geen tijd meer')};
+    case 'kicked': return {who:e.n,rest:L(' had to leave after three missed turns. The cards went to the discard pile.',' moest het potje verlaten na drie gemiste beurten. De kaarten gingen naar de aflegstapel.')};
   }
   return {who:'',rest:''};
 }
 const logText=e=>{ const f=fmtLog(e); return f.who+f.rest; };
 function addLog(s,m){ s.log=[...(s.log||[]),m].slice(-4); }
+/* ---- out of time: play the turn as a Hard bot (never calls Balls). After 3 timeouts in a row the player is
+   removed from the match and the cards in their hand go to the discard pile. ---- */
+const TIMEOUT_KICK=3;
+function timeoutMove(s,id){
+  const p=s.players.find(x=>x.id===id); if(!p||!isTurn(s,id)) return 'not your turn';
+  if(s.step==='throw'){ let e=doThrow(s,id,botThrowFor(s,id,'hard')); if(e) e=doThrow(s,id,botThrow(s.hands[id])); if(e) return e; }
+  if(s.step==='draw'&&isTurn(s,id)){ const [src,c]=botDraw(s,id,'hard'); let e=doDraw(s,id,src,c); if(e){ const hp=potatoCard(s); e=doDraw(s,id,hp?'avail':'deck',hp); } if(e) return e; }
+  s.timeouts={...(s.timeouts||{})}; s.timeouts[id]=(s.timeouts[id]||0)+1;
+  addLog(s,{t:'timeout',n:p.name,k:s.timeouts[id]});
+  if(s.timeouts[id]>=TIMEOUT_KICK) kickPlayer(s,id);
+  return null;
+}
+/* a move of your own resets the count */
+function movedSelf(s,id){ if(s.timeouts&&s.timeouts[id]){ s.timeouts={...s.timeouts}; delete s.timeouts[id]; } }
+function kickPlayer(s,id){
+  const i=s.players.findIndex(x=>x.id===id), p=s.players[i]; if(!p||p.out) return;
+  const h=s.hands[id]||[]; s.pile=[...(s.pile||[]),...h]; s.hands[id]=[];
+  p.out=true; p.kicked=true; p.left=true;
+  addLog(s,{t:'kicked',n:p.name,c:h.length});
+  if(s.phase!=='play') return;
+  const alive=aliveList(s);
+  if(alive.length<=1||!alive.some(x=>!x.bot)){
+    /* one player left, or only bots: the match ends and the best placed player wins it */
+    const best=alive.slice().sort((a,b)=>a.score-b.score)[0];
+    s.result={id:Math.random().toString(36).slice(2), round:s.round, caller:null, cv:null, falseB:false, winner:best?best.id:null, coin:false, beaters:[], rows:[], forfeit:id};
+    s.phase='over'; s.overAt=Date.now(); return;
+  }
+  if(s.turn===i){ s.step='throw'; s.turn=nextAlive(s,i); s.turnAt=Date.now(); }
+}
 function placings(s){
   const alive=s.players.filter(p=>!p.out), m={};
   for(const p of alive) m[p.id]=1+alive.filter(q=>q.score<p.score).length;
@@ -1193,6 +1246,22 @@ const SERVER_URL=(()=>{
 })();
 const serverMode=!!SERVER_URL;
 let sock=null, sockWant=false, sockTries=0, sockTimer=null, clockOff=0, srvChat=[], srvChatCb=null;
+/* heartbeat: a "ping" every 20 s; if no "pong" comes back the connection is dead even if the browser hasn't noticed */
+let sockRetry=null, lastPong=0, beatTimer=null;
+function sockHeartbeat(){
+  clearInterval(beatTimer);
+  beatTimer=setInterval(()=>{
+    if(!sock||sock.readyState!==1) return;
+    if(lastPong&&Date.now()-lastPong>50000){ sockDrop(); return; }
+    try{ sock.send('ping'); }catch(e){}
+  },20000);
+}
+/* drop a connection that went quiet and open a fresh one straight away */
+function sockDrop(){ const w=sock; sock=null; try{ w&&w.close(); }catch(e){} if(sockWant&&sockRetry) sockRetry(); }
+/* reconnect straight away when the tab comes back or the network returns */
+function sockKick(){ if(sockWant&&sockRetry&&(!sock||sock.readyState>1)) sockRetry(); }
+document.addEventListener('visibilitychange',()=>{ if(!document.hidden){ if(sock&&sock.readyState===1&&lastPong&&Date.now()-lastPong>45000) sockDrop(); else sockKick(); } });
+window.addEventListener('online',sockKick);
 let mySecret=load('balls.secret'); if(!mySecret){ mySecret=newId()+newId()+newId(); store('balls.secret',mySecret); }
 const rulesSum=r=>rulesSummary(r).replace(L('Custom rules: ','Eigen regels: '),'');
 /* ---- accounts (live on the game server): name, password, win/loss record ---- */
@@ -1263,6 +1332,16 @@ const devTag=()=>`<span class="devtag" title="${L('Game developer','Maker van he
 const nameHTML=p=>p&&p.dev?`<span class="devname">${esc(p.name)}</span>${devTag()}`:esc(p&&p.name||'');
 const achName=id=>(ACH.find(a=>a[0]===id)||[id,id])[1];
 const achCount=u=>u&&u.ach?ACH.filter(a=>u.ach[a[0]]).length:0;
+/* match log: the last 5 online matches of an account */
+function matchLogHTML(log){
+  if(!log||!log.length) return `<p class="note">${L('No online matches yet.','Nog geen online potjes.')}</p>`;
+  const when=t=>{ const d=new Date(t); return d.toLocaleDateString(lang==='nl'?'nl-NL':'en-GB',{day:'numeric',month:'short'})+' '+d.toLocaleTimeString(lang==='nl'?'nl-NL':'en-GB',{hour:'2-digit',minute:'2-digit'}); };
+  return `<ul class="mlog">${log.map(m=>{
+    const res=m.kicked?L('Removed','Verwijderd'):m.place?ordinal(m.place):L('Out','Uit');
+    const who=(m.players||[]).map(p=>`${esc(p.n)}${p.bot?' 🤖':''} ${p.sc}`).join(' · ');
+    return `<li class="${m.win?'win':''}"><div class="mlog-top"><b>${m.win?'🏆 ':''}${res}</b><span class="mlog-tag ${m.mode==='standard'?'std':''}">${m.mode==='standard'?L('Standard','Standaard'):L('Custom','Eigen regels')}</span>${m.counted?'':`<span class="mlog-tag">${L('not counted','telt niet')}</span>`}<span class="note">${when(m.at)}</span></div>
+      <small>${L(`${m.score} pts · ${m.rounds} round${m.rounds===1?'':'s'}`,`${m.score} pnt · ${m.rounds} ronde${m.rounds===1?'':'s'}`)} · ${who}</small></li>`; }).join('')}</ul>`;
+}
 const winPct=u=>u&&u.played?Math.round(100*u.wins/u.played)+'%':'–';
 /* poker hands you can collect (the best hand you hold counts; Jokers aren't wild) */
 const POKER=[['pair',L('Pair','Paar')],['twopair',L('Two pair','Twee paar')],['trips',L('Three of a kind','Drie dezelfde')],['straight',L('Straight','Straat')],['flush',L('Flush','Flush')],['fullhouse',L('Full house','Full house')],['quads',L('Four of a kind','Carré')],['straightflush',L('Straight flush','Straight flush')],['royal',L('Royal flush','Royal flush')]];
@@ -1282,6 +1361,8 @@ function renderAcctSheet(){
         <div class="stile"><b>${acct.streak||0}</b><span>${L('Win streak','Winstreeks')}</span></div>
         <div class="stile"><b>${acct.best||0}</b><span>${L('Best streak','Beste reeks')}</span></div>
       </div>
+      <h4 class="achh">${L('Match log','Potjeslog')} <small>${L('last 5','laatste 5')}</small></h4>
+      ${matchLogHTML(acct.log)}
       <h4 class="achh">${L('Poker hands','Pokerhanden')} <small>${pokerCount(acct)}/9</small></h4>
       <ul class="pokerlist">${POKER.map(([k,n])=>`<li class="${acct.poker&&acct.poker[k]?'got':''}">${n}</li>`).join('')}</ul>
       <h4 class="achh">${L('Achievements','Prestaties')} <small>${achCount(acct)}/${ACH.length}</small></h4>
@@ -1289,6 +1370,7 @@ function renderAcctSheet(){
       <p class="note">${L('Achievements count at online tables on Standard rules, also with bots.','Prestaties tellen aan online tafels met standaardregels, ook met bots.')}</p>
       <p class="note">${L(`Logged in as <b>${esc(acct.name)}</b>. Only online matches on Standard rules with at least 2 people count.`,`Ingelogd als <b>${esc(acct.name)}</b>. Alleen online potjes met standaardregels en minstens 2 mensen tellen mee.`)}</p>
       ${acctErr?`<p class="err" role="alert">${esc(acctErr)}</p>`:''}
+      ${acct.dev?`<div class="row"><button class="btn alt grow" id="a-dev">Dev panel</button></div>`:''}
       <div class="row"><button class="btn ghost" id="a-out" ${busy}>${L('Log out','Uitloggen')}</button><button class="btn grow" id="a-close">${L('Done','Klaar')}</button></div>
       <details class="rules"><summary>${L('Change password','Wachtwoord wijzigen')}</summary><div class="howto">
         <input class="txt" id="a-oldpw" type="password" autocomplete="current-password" placeholder="${L('Current password','Huidig wachtwoord')}">
@@ -1316,6 +1398,7 @@ function renderAcctSheet(){
   const run=async(path,body,after)=>{ acctBusy=true; acctErr=''; render(); const r=await acctApi(path,body); acctBusy=false; if(r.ok) after(r); else acctErr=r.err; render(); };
   if(acct){
     $('#a-out').onclick=()=>{ const t=acctToken; setAcct(null,null); acctApi('logout',{token:t}); close(); };
+    const db=$('#a-dev'); if(db) db.onclick=()=>{ showAcct=false; showDev=true; render(); devLoadUsage(); };
     $('#a-chpw').onclick=()=>run('password',{token:acctToken,password:$('#a-oldpw').value,next:$('#a-newpw').value},()=>toast(L('Password changed.','Wachtwoord gewijzigd.')));
     $('#a-del').onclick=()=>{ const pw=$('#a-delpw').value; run('delete',{token:acctToken,password:pw},()=>{ setAcct(null,null); showAcct=false; toast(L('Your account is deleted.','Je account is verwijderd.')); }); };
   } else {
@@ -1333,14 +1416,15 @@ function serverSubscribe(code){
 }
 function serverOpen(code,{create=false,tableMode='custom'}={}){
   return new Promise(resolve=>{
-    let first=true;
+    let first=true, firstTries=0;
     const done=r=>{ if(first){ first=false; resolve(r); return true; } return false; };
     const go=()=>{
       clearTimeout(sockTimer);
+      if(sock&&sock.readyState<=1) return;
       let ws; try{ ws=new WebSocket(SERVER_URL.replace(/^http/,'ws')+'/api/table/'+code); }catch(e){ sockWant=false; done({ok:false,msg:L('Could not reach the game server. Try again.','De spelserver is niet bereikbaar. Probeer het opnieuw.')}); return; }
-      sock=ws;
+      sock=ws; sockRetry=go;
       ws.onopen=()=>{
-        sockTries=0;
+        sockTries=0; lastPong=Date.now(); sockHeartbeat();
         const hello={t:'hello',id:me,secret:mySecret,name:(acct?acct.name:myName).trim().slice(0,14),lang};
         if(acctToken) hello.token=acctToken;
         if(create&&first){ const std=tableMode==='standard', r=std?standardize(localRules()):localRules(); Object.assign(hello,{create:true,mode:std?'standard':'custom',rules:r,sum:std?L('Standard table','Standaardtafel'):rulesSum(r)}); }
@@ -1348,6 +1432,8 @@ function serverOpen(code,{create=false,tableMode='custom'}={}){
       };
       ws.onmessage=e=>{
         if(ws!==sock) return;
+        if(e.data==='pong'){ lastPong=Date.now(); return; }
+        lastPong=Date.now();
         let m; try{ m=JSON.parse(e.data); }catch(x){ return; }
         if(m.t==='state'){ clockOff=Date.now()-(m.s.now||Date.now()); done({ok:true}); onServerState(fixTimes(m.s)); }
         else if(m.t==='err'){
@@ -1361,11 +1447,13 @@ function serverOpen(code,{create=false,tableMode='custom'}={}){
         else if(m.t==='ach'&&m.user){ acct=m.user;
           const msgs=[...(m.poker||[]).map(k=>'♠ '+L('New poker hand: ','Nieuwe pokerhand: ')+((POKER.find(h=>h[0]===k)||[k,k])[1])+` (${pokerCount(acct)}/9)`),...(m.ids||[]).map(a=>'★ '+L('Achievement: ','Prestatie: ')+achName(a))];
           msgs.forEach((t,i)=>setTimeout(()=>toast(t),400+i*2200)); }
-        else if(m.t==='record'&&m.user){ acct=m.user; (m.fresh||[]).forEach((a,i)=>setTimeout(()=>toast('★ '+L('Achievement: ','Prestatie: ')+achName(a)),5000+i*2200)); setTimeout(()=>toast(m.win?L(`+1 win · ${recordLine(acct)}`,`+1 gewonnen · ${recordLine(acct)}`):L(`Counted as a loss · ${recordLine(acct)}`,`Telt als verlies · ${recordLine(acct)}`)),2500); }
+        else if(m.t==='record'&&m.user){ acct=m.user; (m.fresh||[]).forEach((a,i)=>setTimeout(()=>toast('★ '+L('Achievement: ','Prestatie: ')+achName(a)),5000+i*2200)); if(m.counted!==false) setTimeout(()=>toast(m.win?L(`+1 win · ${recordLine(acct)}`,`+1 gewonnen · ${recordLine(acct)}`):L(`Counted as a loss · ${recordLine(acct)}`,`Telt als verlies · ${recordLine(acct)}`)),2500); }
       };
       ws.onclose=()=>{
         if(ws!==sock) return;
         sock=null;
+        /* a first connection that fails gets two quiet retries before we give up */
+        if(first&&sockWant&&++firstTries<3){ sockTimer=setTimeout(go,600*firstTries); return; }
         if(done({ok:false,msg:L('Could not reach the game server. Try again.','De spelserver is niet bereikbaar. Probeer het opnieuw.')})){ sockWant=false; return; }
         if(!sockWant) return;
         if(++sockTries===3) toast(L('Lost the connection. Reconnecting…','Verbinding kwijt. Opnieuw verbinden…'));
@@ -1393,21 +1481,24 @@ function serverChat(){
     send(code,m){ if(!sock||sock.readyState!==1) throw new Error('offline'); sock.send(JSON.stringify({t:'chat',k:m.k,text:m.t})); }
   };
 }
+let lastInput=Date.now();
+['pointerdown','keydown'].forEach(ev=>document.addEventListener(ev,()=>{ const idle=Date.now()-lastInput>600000; lastInput=Date.now(); if(idle&&!mode&&lobbyApi&&lobbyApi.refresh) lobbyApi.refresh(); },{passive:true}));
 function serverLobby(){
+  let pollNow=null;
   return {
     watch(cb){
-      const poll=()=>{ if(mode||document.hidden) return; fetch(SERVER_URL+'/api/lobby').then(r=>r.json()).then(l=>cb((l||[]).map(t=>({...t,at:(t.at||0)+clockOff})))).catch(()=>{}); };
-      poll(); const t=setInterval(poll,20000); const v=()=>{ if(!document.hidden) poll(); }; document.addEventListener('visibilitychange',v);
+      const poll=()=>{ if(mode||document.hidden||Date.now()-lastInput>600000) return; fetch(SERVER_URL+'/api/lobby').then(r=>r.json()).then(l=>cb((l||[]).map(t=>({...t,at:(t.at||0)+clockOff})))).catch(()=>{}); };
+      poll(); pollNow=poll; const t=setInterval(poll,20000); const v=()=>{ if(!document.hidden) poll(); }; document.addEventListener('visibilitychange',v);
       return ()=>{ clearInterval(t); document.removeEventListener('visibilitychange',v); };
     },
-    put(){}, drop(){}
+    put(){}, drop(){}, refresh(){ if(pollNow) pollNow(); }
   };
 }
 
 async function act(fn,intent){
   if(serverMode&&mode==='online'){
     if(!intent||!S) return;
-    if(!sock||sock.readyState!==1){ toast(L('Not connected to the table yet. Reconnecting…','Nog niet verbonden met de tafel. Opnieuw verbinden…')); return; }
+    if(!sock||sock.readyState!==1){ toast(L('Not connected to the table yet. Reconnecting…','Nog niet verbonden met de tafel. Opnieuw verbinden…')); sockKick(); return; }
     sock.send(JSON.stringify({t:'act',...intent})); sel.clear(); render(); return;
   }
   if(busy||!S) return;
@@ -1415,6 +1506,7 @@ async function act(fn,intent){
   useRules(s);
   const err=fn(s);
   if(err){ toast(err); return; }
+  if(intent&&(intent.a==='throw'||intent.a==='draw')) movedSelf(s,me);
   s.v=(s.v||0)+1;
   sel.clear();
   if(mode==='local'){ const pv=S; S=s; afterState(pv); return; }
@@ -1541,12 +1633,8 @@ function scheduleTimeout(cur){
   const due=(S.turnAt||Date.now())+RULES.turnTimer*1000+400-Date.now();
   autoTimer=setTimeout(()=>{
     if(!S||S.phase!=='play'||S.round+':'+S.turn+':'+S.turnAt!==key) return;
-    const id=S.players[S.turn].id, nm=S.players[S.turn].name;
-    act(s=>{
-      if(s.step==='throw'){ const e=doThrow(s,id,botThrow(s.hands[id])); if(e) return e; }
-      const hp=potatoCard(s), e2=doDraw(s,id,hp?'avail':'deck',hp); if(e2) return e2;
-      addLog(s,{t:'timeout',n:nm});
-    });
+    const id=S.players[S.turn].id;
+    act(s=>timeoutMove(s,id));
   }, Math.max(0,due));
 }
 function timeLeft(){ if(!S||S.phase!=='play'||!RULES.turnTimer||!roundLive(S)) return null; return Math.max(0,Math.ceil(((S.turnAt||0)+RULES.turnTimer*1000-Date.now())/1000)); }
@@ -1584,6 +1672,85 @@ function subscribe(code){
     if(firstSnap && S.result) lastSplash=S.result.id;
     afterState(pv); firstSnap=false;
   }, err=>{ clearTimeout(loadTimer); leaveTable(L('Lost the connection to the table. Rejoin with the code.','Verbinding met de tafel verbroken. Doe opnieuw mee met de code.')); });
+}
+/* ---- dev panel (only for the account with the dev role; the server checks this on every call) ---- */
+let showDev=false, devTab='usage', devUsage=null, devUsers=null, devEdit=null, devMsg='', devBusy=false;
+async function devApi(path,body){
+  try{
+    const r=await fetch(SERVER_URL+'/api/admin/'+path,{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify({token:acctToken,...(body||{})})});
+    const d=await r.json().catch(()=>({}));
+    return r.ok?{ok:true,...d}:{ok:false,err:d.error==='forbidden'?'Not allowed: log in as the dev account.':d.error==='nouser'?'No account with that name.':(d.error||'HTTP '+r.status)};
+  }catch(e){ return {ok:false,err:'Could not reach the game server.'}; }
+}
+async function devLoadUsage(){ devBusy=true; render(); const r=await devApi('usage'); devBusy=false; if(r.ok) devUsage=r; else devMsg=r.err; render(); }
+async function devLoadUsers(){ devBusy=true; render(); const r=await devApi('list'); devBusy=false; if(r.ok) devUsers=r.users; else devMsg=r.err; render(); }
+async function devLoadUser(name){ devBusy=true; devMsg=''; render(); const r=await devApi('get',{name}); devBusy=false; if(r.ok) devEdit=r.user; else devMsg=r.err; render(); }
+function renderDevSheet(){
+  const fmt=n=>n==null?'?':n>=1e9?(n/1e9).toFixed(2)+' GB':n>=1e6?(n/1e6).toFixed(2)+'M':n>=1e4?(n/1e3).toFixed(1)+'k':String(n);
+  const LABELS=[['workerRequests','Worker requests'],['doRequests','Durable Object requests'],['doGbSeconds','Durable Object time (GB-s)'],['rowsWritten','Storage rows written'],['rowsRead','Storage rows read'],['storedBytes','Stored data (total)']];
+  const usage=()=>{
+    if(!devUsage) return `<p class="note">${devBusy?'Loading…':devMsg||''}</p>`;
+    if(!devUsage.configured) return `<p class="note">Usage isn't set up yet. Make a Cloudflare API token with only <b>Account Analytics: Read</b>, add it on GitHub as the secret <code>CF_ANALYTICS_TOKEN</code>, and run Deploy site once.</p>`;
+    return `<div class="devbars">${LABELS.map(([k,n])=>{ const u=devUsage.used[k], lim=devUsage.limits[k], pct=u==null?0:Math.min(100,Math.round(100*u/lim));
+      return `<div class="devbar ${pct>=80?'hot':pct>=50?'warm':''}"><div class="devbar-top"><span>${n}</span><b>${fmt(u)} / ${fmt(lim)}${u==null?'':` · ${pct}%`}</b></div><div class="devbar-track"><i style="width:${pct}%"></i></div><small>${u==null?'Not available':`${fmt(Math.max(0,lim-u))} left today`}</small></div>`; }).join('')}</div>
+      <p class="note">Cloudflare's numbers run a few minutes behind and reset at 01:00 Dutch time (00:00 UTC). WebSocket messages count 1/20 toward the request limit, so the real request use is lower than shown.${Object.keys(devUsage.errors||{}).length?` Some numbers failed: ${esc(Object.values(devUsage.errors).join(' / '))}`:''}</p>`;
+  };
+  const editor=()=>{
+    const list=devUsers?`<ul class="plist devusers">${devUsers.map(u=>`<li><button class="btn ghost" data-devuser="${esc(u.name)}">${u.dev?'<span class="devname">'+esc(u.name)+'</span>':esc(u.name)}</button><span class="note">${u.wins}W ${u.losses}L · ★${u.ach}</span></li>`).join('')}</ul><p class="note">${devUsers.length} accounts</p>`:'';
+    const e=devEdit, d=t=>t?new Date(t).toLocaleString('en-GB',{day:'numeric',month:'short',hour:'2-digit',minute:'2-digit'}):'';
+    const form=e?`<div class="deved">
+      <h4 class="achh">${e.dev?'<span class="devname">'+esc(e.name)+'</span>':esc(e.name)} <small>${esc(e.role)} · since ${new Date(e.since).toLocaleDateString()}</small></h4>
+      <h4 class="achh">Save data</h4>
+      <div class="devnums">${['wins','losses','played','streak','best'].map(k=>`<label>${k}<input class="txt" type="number" min="0" id="dv-${k}" value="${e[k]||0}"></label>`).join('')}</div>
+      <h4 class="achh">Poker hands <small>${POKER.filter(h=>e.poker&&e.poker[h[0]]).length}/9</small></h4>
+      <div class="devchecks">${POKER.map(([k,n])=>`<label><input type="checkbox" data-dvpoker="${k}" ${e.poker&&e.poker[k]?'checked':''}> ${n}</label>`).join('')}</div>
+      <div class="row"><button class="btn grow" id="dv-save" ${devBusy?'disabled':''}>Save numbers and poker hands</button></div>
+      <h4 class="achh">Achievements <small>${ACH.filter(a=>e.ach&&e.ach[a[0]]).length}/${ACH.length}</small> <button class="btn ghost devmini" id="dv-all">Unlock all</button><button class="btn ghost devmini" id="dv-none">Lock all</button></h4>
+      <ul class="devach">${ACH.map(([id,n,desc])=>{ const at=e.ach&&e.ach[id]; return `<li class="${at?'got':''}"><span><b>${at?'★':'☆'} ${n}</b><small>${desc}</small></span><span class="devach-st">${at?'Unlocked<br>'+d(at):'Locked'}</span><button class="btn ${at?'ghost':''} devmini" data-dvone="${id}" data-on="${at?0:1}" ${devBusy?'disabled':''}>${at?'Lock':'Unlock'}</button></li>`; }).join('')}</ul>
+      <h4 class="achh">Match log <small>last 5</small></h4>
+      ${matchLogHTML(e.log)}
+      <details class="rules"><summary>Raw save data</summary><pre class="devraw">${esc(JSON.stringify(e,null,1))}</pre></details></div>`:'';
+    return `<label class="lbl" for="dv-name">Username</label>
+      <div class="row"><input class="txt grow" id="dv-name" list="dv-names" autocomplete="off" placeholder="Username" value="${esc(e?e.name:'giel')}"><button class="btn" id="dv-load">Open</button><button class="btn ghost" id="dv-list">All accounts</button></div>
+      <datalist id="dv-names">${(devUsers||[]).map(u=>`<option value="${esc(u.name)}">`).join('')}</datalist>${list}${form}`;
+  };
+  layer.innerHTML=`<div class="overlay" id="ov"><div class="sheet devsheet" role="dialog" aria-label="Dev panel">
+    <h3>Dev panel</h3>
+    <div class="row devtabs"><button class="btn ${devTab==='usage'?'':'ghost'}" id="dt-usage">Cloudflare usage</button><button class="btn ${devTab==='edit'?'':'ghost'}" id="dt-edit">Save editor</button></div>
+    ${devTab==='usage'?usage()+`<div class="row"><button class="btn ghost grow" id="dv-refresh" ${devBusy?'disabled':''}>Refresh</button></div>`:editor()}
+    ${devMsg&&devTab==='edit'?`<p class="note" role="status">${esc(devMsg)}</p>`:''}
+    <div class="row"><button class="btn ghost grow" id="dv-close">Close</button></div>
+  </div></div>`;
+  const close=()=>{ showDev=false; devMsg=''; render(); };
+  $('#dv-close').onclick=close; $('#ov').onclick=e=>{ if(e.target.id==='ov') close(); };
+  $('#dt-usage').onclick=()=>{ devTab='usage'; devMsg=''; render(); if(!devUsage) devLoadUsage(); };
+  $('#dt-edit').onclick=()=>{ devTab='edit'; devMsg=''; render(); if(!devEdit) devLoadUser('giel'); if(!devUsers) devLoadUsers(); };
+  const rf=$('#dv-refresh'); if(rf) rf.onclick=devLoadUsage;
+  if(devTab==='edit'){
+    $('#dv-load').onclick=()=>devLoadUser($('#dv-name').value.trim());
+    $('#dv-name').onkeydown=e=>{ if(e.key==='Enter') devLoadUser($('#dv-name').value.trim()); };
+    $('#dv-list').onclick=devLoadUsers;
+    layer.querySelectorAll('[data-devuser]').forEach(b=>b.onclick=()=>devLoadUser(b.dataset.devuser));
+    if(devEdit){
+      const saveAch=async ach=>{ devBusy=true; render(); const r=await devApi('save',{name:devEdit.name,patch:{ach}}); devBusy=false; if(r.ok){ devEdit=r.user; devMsg='Saved.'; if(acct&&acct.name.toLowerCase()===r.user.name.toLowerCase()) refreshAcct(); } else devMsg=r.err; render(); };
+      $('#dv-all').onclick=()=>saveAch(Object.fromEntries(ACH.map(a=>[a[0],1])));
+      $('#dv-none').onclick=()=>saveAch({});
+      /* one achievement at a time: saved straight away */
+      layer.querySelectorAll('[data-dvone]').forEach(b=>b.onclick=async()=>{
+        devBusy=true; render(); const r=await devApi('ach',{name:devEdit.name,id:b.dataset.dvone,on:b.dataset.on==='1'}); devBusy=false;
+        if(r.ok){ devEdit=r.user; devMsg=`${achName(b.dataset.dvone)}: ${b.dataset.on==='1'?'unlocked':'locked'}.`; if(acct&&acct.name.toLowerCase()===r.user.name.toLowerCase()) refreshAcct(); } else devMsg=r.err;
+        render();
+      });
+      $('#dv-save').onclick=async()=>{
+        const patch={poker:{}};
+        for(const k of ['wins','losses','played','streak','best']) patch[k]=Number($('#dv-'+k).value)||0;
+        layer.querySelectorAll('[data-dvpoker]').forEach(c=>{ if(c.checked) patch.poker[c.dataset.dvpoker]=1; });
+        devBusy=true; render(); const r=await devApi('save',{name:devEdit.name,patch}); devBusy=false;
+        if(r.ok){ devEdit=r.user; devMsg='Saved.'; if(acct&&acct.name.toLowerCase()===r.user.name.toLowerCase()) refreshAcct(); } else devMsg=r.err;
+        render();
+      };
+    }
+  }
 }
 /* Standard or Custom: Standard counts for stats and achievements, Custom lets you set every rule */
 function renderCreateSheet(){
@@ -1645,7 +1812,7 @@ async function roomTxn(fn,r=ref){
   d.v=(d.v||0)+1; await r.set(d);
 }
 function leaveTable(msg){
-  if(serverMode){ const w=sock; sockWant=false; sock=null; clearTimeout(sockTimer); srvChat=[];
+  if(serverMode){ const w=sock; sockWant=false; sock=null; sockRetry=null; clearTimeout(sockTimer); clearInterval(beatTimer); srvChat=[];
     if(w){ try{ if(w.readyState===1) w.send(JSON.stringify({t:'act',a:'leave'})); }catch(e){} setTimeout(()=>{ try{ w.close(); }catch(e){} },200); } }
   if(mode==='online'&&S&&ref){ const r=ref, id=me; roomTxn(d=>{
       const p=d.players.find(x=>x.id===id); if(!p) return false;
@@ -1669,7 +1836,7 @@ function renderInner(){
   if(!mode||!S||S.phase==='lobby') clearFit();
   layer.innerHTML='';
   useRules(S);
-  if(!mode){ renderHome(); if(showRules) renderRulesSheet(); else if(showAcct) renderAcctSheet(); else if(showCreate) renderCreateSheet(); return; }
+  if(!mode){ renderHome(); if(showRules) renderRulesSheet(); else if(showAcct) renderAcctSheet(); else if(showCreate) renderCreateSheet(); else if(showDev) renderDevSheet(); return; }
   if(mode==='online' && !S) { app.innerHTML=`<div class="screen home"><div class="logo ${lang}">${L('BALLS!','BALZAKKEN!')}</div><p class="tag">${L('Sitting down at table','Aanschuiven bij tafel')} ${esc(roomCode)}…</p><button class="btn ghost" id="b-leave">${L('Back','Terug')}</button></div>`; $('#b-leave').onclick=()=>leaveTable(); return; }
   if(S.phase==='lobby') return renderLobby();
   renderGame();
@@ -2256,7 +2423,7 @@ function renderResult(){
   const r=S.result; if(!r) return;
   const caller=pname(S,r.caller), win=pname(S,r.winner);
   const over=S.phase==='over';
-  const champ=aliveList(S)[0];
+  const champ=r.forfeit&&r.winner?S.players.find(p=>p.id===r.winner):aliveList(S)[0];
   const canNext = mode==='local' || S.host===me;
   const head = over
     ? (champ&&champ.id===me ? L(`<h3><span class="hl">You</span> win the game!</h3>`,`<h3><span class="hl">Jij</span> wint het spel!</h3>`) : L(`<h3><span class="hl">${esc(champ?champ.name:'Nobody')}</span> wins the game!</h3>`,`<h3><span class="hl">${esc(champ?champ.name:'Niemand')}</span> wint het spel!</h3>`))
@@ -2267,7 +2434,7 @@ function renderResult(){
       : L(`<h3>${esc(caller)} called <span class="hl">Balls</span> with ${r.cv}</h3><p class="sub">Lowest hand. ${esc(caller)} deals next round.</p>`,`<h3>${esc(caller)} riep <span class="hl">Balzak</span> met ${r.cv}</h3><p class="sub">Laagste hand. ${esc(caller)} deelt de volgende ronde.</p>`);
   layer.innerHTML=`<div class="overlay"><div class="sheet" role="dialog" aria-label="${L('Round result','Uitslag van de ronde')}">
     ${head}
-    ${over?`<p class="sub">${L(`Final round: ${esc(caller)} called ${r.falseB?'false ':''}Balls with ${r.cv}.`,`Laatste ronde: ${esc(caller)} riep ${r.falseB?'valse ':''}Balzak met ${r.cv}.`)}</p>`:''}
+    ${over?`<p class="sub">${r.forfeit?(r.forfeit===me?L('You missed three turns in a row and had to leave, so the match is over.','Je miste drie beurten achter elkaar en moest het potje verlaten, dus het potje is voorbij.'):L(`${esc(pname(S,r.forfeit))} missed three turns in a row and had to leave, so the match is over.`,`${esc(pname(S,r.forfeit))} miste drie beurten achter elkaar en moest het potje verlaten, dus het potje is voorbij.`)):L(`Final round: ${esc(caller)} called ${r.falseB?'false ':''}Balls with ${r.cv}.`,`Laatste ronde: ${esc(caller)} riep ${r.falseB?'valse ':''}Balzak met ${r.cv}.`)}</p>`:''}
     ${over?`<h4 class="sec">${L('Match summary','Samenvatting')}</h4>${statsHTML()}<h4 class="sec">${L('Round by round','Per ronde')}</h4>${historyHTML()}`:''}
     <div class="res" ${over?'hidden':''}>${r.rows.map(x=>`<div class="rrow ${x.id===r.winner?'win':''}">
       <span class="who">${rankBadge(S,x.id)} ${esc(pname(S,x.id))}${x.id===r.winner?`<span class="tagn">${L('round win','rondewinst')}</span>`:''}${x.notes.map(n=>`<span class="tagn ${n==='Eliminated'?'bad':''}">${esc(n==='Eliminated'?L('Eliminated','Uitgeschakeld'):n)}</span>`).join('')}</span>
