@@ -701,8 +701,10 @@ html.compact:not(.skin-classic) .screen{padding-block:6px}
 let lang=(()=>{ try{ const v=localStorage.getItem('balls.lang'); if(v==='nl'||v==='en') return v; }catch(e){} return /^nl\b/i.test(navigator.language||'')?'nl':'en'; })();
 const L=(en,nl)=>lang==='nl'?nl:en;
 const GAME=()=>L('Balls!','Balzakken');
-const VERSION='1.6.1';
+const VERSION='1.6.2';
 const DEVLOG=[
+  {v:'1.6.2',d:'11-11-2026',en:['Online play is back on the old system for now. Accounts, win/loss and achievements live on the beta page'],
+                            nl:['Online spelen draait voorlopig weer op het oude systeem. Accounts, winst/verlies en prestaties staan op de betapagina']},
   {v:'1.6.1',d:'11-11-2026',en:['The match summary shows your own stats first, everyone else\'s are one tap away'],
                             nl:['De samenvatting laat eerst je eigen statistieken zien, die van de rest staan een tik verder']},
   {v:'1.6.0',d:'11-11-2026',en:['Every online table now runs on the game server: no peeking at cards or faking moves','Accounts: log in to keep a win/loss record','Online matches on Standard rules with at least 2 people count','26 achievements to unlock'],
@@ -1220,7 +1222,8 @@ const SERVER_URL=(()=>{
   /* order: ?server= test override (kept for this browser), then the page's own setting, then the live site default */
   let u='';
   try{ const q=new URLSearchParams(location.search).get('server'); if(q!==null){ if(q) localStorage.setItem('balls.server',q); else localStorage.removeItem('balls.server'); } u=localStorage.getItem('balls.server')||''; }catch(e){}
-  u=u||window.BALLS_SERVER||(/(^|\.)pelgrim32\.github\.io$/.test(location.hostname)?'https://balls-server.pelgrim32.workers.dev':'');
+  /* the live page plays on Firebase for now; beta.html sets BALLS_SERVER and plays on the game server */
+  u=u||window.BALLS_SERVER||'';
   return u.replace(/\/+$/,'');
 })();
 const serverMode=!!SERVER_URL;
