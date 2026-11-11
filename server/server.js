@@ -51,7 +51,31 @@ const sha256=async t=>b64u(await crypto.subtle.digest('SHA-256',enc.encode(t)));
 async function pwHash(pw,salt){ const k=await crypto.subtle.importKey('raw',enc.encode(pw),'PBKDF2',false,['deriveBits']); return b64u(await crypto.subtle.deriveBits({name:'PBKDF2',hash:'SHA-256',salt:enc.encode(salt),iterations:100000},k,256)); }
 const NAME_RE=/^[A-Za-z0-9_-]{3,14}$/, SESSION_MS=180*864e5;
 const ACH_IDS=['a69','a69x2','a100','w0','w1','w2','w3','w4','j1','j2','j4','t3j','t4','tj','tjj','t2j','flawless',
-  'win1','balls1','quick','gotcha','oops','comeback','survivor','m10','m50'];
+  'win1','balls1','quick','gotcha','oops','comeback','survivor','m10','m50',
+  's5','s10','s25','out1','vsdev','beatdev','poker','all'];
+/* poker hands to collect (best hand you hold). Jokers aren't wild: two Jokers are a pair, but they never make a straight or flush */
+const POKER=['pair','twopair','trips','straight','flush','fullhouse','quads','straightflush','royal'];
+function pokerHand(hand){
+  const cs=(hand||[]).filter(c=>rank(c)!=='X'), by={}, su={};
+  for(const c of hand||[]) by[rank(c)]=(by[rank(c)]||0)+1;
+  for(const c of cs) (su[suit(c)]=su[suit(c)]||[]).push(c);
+  const num=r=>({A:1,J:11,Q:12,K:13})[r]||+r;
+  const vals=list=>{ const v=new Set(); for(const c of list){ const n=num(rank(c)); v.add(n); if(n===1) v.add(14); } return v; };
+  const run=(v,lo)=>[0,1,2,3,4].every(k=>v.has(lo+k));
+  const straight=list=>{ const v=vals(list); for(let lo=10;lo>=1;lo--) if(run(v,lo)) return lo; return 0; };
+  const n=Object.values(by).sort((a,b)=>b-a);
+  let sf=0; for(const list of Object.values(su)) if(list.length>=5) sf=Math.max(sf,straight(list));
+  if(sf===10) return 'royal';
+  if(sf) return 'straightflush';
+  if(n[0]>=4) return 'quads';
+  if(n[0]>=3&&n[1]>=2) return 'fullhouse';
+  if(Object.values(su).some(l=>l.length>=5)) return 'flush';
+  if(straight(cs)) return 'straight';
+  if(n[0]>=3) return 'trips';
+  if(n[0]>=2&&n[1]>=2) return 'twopair';
+  if(n[0]>=2) return 'pair';
+  return null;
+}
 /* the developer account: created on first use, before anyone else can take the name.
    Only a salted PBKDF2 hash is stored here, never the password. */
 const DEV_SEED={key:'u:giel',user:{uid:'dev-giel',name:'giel',role:'dev',salt:'WMnmARFKRbPGMB2dE04Iow',hash:'GN8sQ2k_-Ob78uQMogpmAI-cnRdmCvIRjBog4zz956g',wins:0,losses:0,played:0}};
@@ -65,7 +89,15 @@ export class Accounts {
     let b={}; try{ b=await req.json()||{}; }catch(e){}
     const out=(o,status=200)=>new Response(JSON.stringify(o),{status,headers:{'content-type':'application/json'}});
     const no=(code,status=400)=>out({error:code},status);
-    const pub=u=>({name:u.name,wins:u.wins||0,losses:u.losses||0,played:u.played||0,since:u.created,ach:u.ach||{},dev:u.role==='dev'});
+    const pub=u=>({name:u.name,wins:u.wins||0,losses:u.losses||0,played:u.played||0,since:u.created,ach:u.ach||{},dev:u.role==='dev',streak:u.streak||0,best:u.best||0,poker:u.poker||{}});
+    /* unlock achievements; "all" follows once every other one is in (the dev can't play against himself) */
+    const grant=(u,ids)=>{
+      u.ach=u.ach||{}; const fr=[];
+      for(const a of ids) if(ACH_IDS.includes(a)&&a!=='all'&&!u.ach[a]){ u.ach[a]=Date.now(); fr.push(a); }
+      const need=ACH_IDS.filter(a=>a!=='all'&&!(u.role==='dev'&&(a==='vsdev'||a==='beatdev')));
+      if(!u.ach.all&&need.every(a=>u.ach[a])){ u.ach.all=Date.now(); fr.push('all'); }
+      return fr;
+    };
     const keyOf=n=>'u:'+String(n||'').toLowerCase();
     const session=async tok=>{
       if(typeof tok!=='string'||tok.length<20||tok.length>100) return null;
@@ -116,9 +148,12 @@ export class Accounts {
       case 'verify': { const u=await session(b.token); return u?out({uid:u.uid,name:u.name,dev:u.role==='dev'}):no('auth',401); }
       case 'achieve': {
         const u=await st.get(keyOf(b.name)); if(!u||u.uid!==b.uid) return out({fresh:[]});
-        const fresh=[]; u.ach=u.ach||{};
-        for(const a of (Array.isArray(b.ids)?b.ids:[])) if(ACH_IDS.includes(a)&&!u.ach[a]){ u.ach[a]=Date.now(); fresh.push(a); }
-        if(fresh.length) await st.put(keyOf(u.name),u);
+        const ids=(Array.isArray(b.ids)?b.ids:[]).slice(0,40); let changed=false;
+        u.poker=u.poker||{};
+        for(const h of (Array.isArray(b.poker)?b.poker:[])) if(POKER.includes(h)&&!u.poker[h]){ u.poker[h]=Date.now(); changed=true; }
+        if(POKER.every(h=>u.poker[h])) ids.push('poker');
+        const fresh=grant(u,ids);
+        if(fresh.length||changed) await st.put(keyOf(u.name),u);
         return out({fresh,user:pub(u)});
       }
       case 'result': {
@@ -126,8 +161,10 @@ export class Accounts {
         for(const r of (Array.isArray(b.results)?b.results:[])){
           const u=await st.get(keyOf(r.name)); if(!u||u.uid!==r.uid||done[u.uid]) continue;
           u.played=(u.played||0)+1; if(r.win) u.wins=(u.wins||0)+1; else u.losses=(u.losses||0)+1;
-          u.ach=u.ach||{}; const fr=[];
-          for(const [n,a] of [[10,'m10'],[50,'m50']]) if(u.played>=n&&!u.ach[a]){ u.ach[a]=Date.now(); fr.push(a); }
+          u.streak=r.win?(u.streak||0)+1:0; u.best=Math.max(u.best||0,u.streak);
+          const ids=[]; for(const [n,a] of [[10,'m10'],[50,'m50']]) if(u.played>=n) ids.push(a);
+          for(const [n,a] of [[5,'s5'],[10,'s10'],[25,'s25']]) if(u.streak>=n) ids.push(a);
+          const fr=grant(u,ids);
           await st.put(keyOf(u.name),u); done[u.uid]=pub(u); fresh[u.uid]=fr;
         }
         return out({users:done,fresh});
@@ -264,7 +301,7 @@ export class Table {
         else if(notReady(s).length) err=L('Waiting for '+notReady(s).map(p=>p.name).join(', ')+' to ready up.','Wachten tot '+notReady(s).map(p=>p.name).join(', ')+' klaar is.');
         else { const cn=cardsNeeded(s.rules,s.players.length); if(cn.need>cn.have) err=L('Not enough cards for this many players.','Niet genoeg kaarten voor zoveel spelers.'); else { s.stats={}; s.history=[]; s.dealer=Math.floor(Math.random()*s.players.length); s.v_round=1; startRound(s);
           /* win/loss only counts on Standard rules with at least 2 people at the table */
-          s.ranked=rankedRules(s.rules)&&this.humans().length>=2; this.meta.recorded=null; this.meta.achT={}; this.meta.achRes=null; } }
+          s.ranked=rankedRules(s.rules)&&this.humans().length>=2; this.meta.recorded=null; this.meta.achT={}; this.meta.achRes=null; this.meta.pokerSeen={}; } }
         break; }
       case 'addBot': {
         if(!host||s.phase!=='lobby') return;
@@ -307,6 +344,16 @@ export class Table {
   achOn(id){ const s=this.s; return !!(s&&rankedRules(s.rules)&&(this.meta.acct||{})[id]); }
   achT(id){ const s=this.s, all=this.meta.achT=this.meta.achT||{}; const t=all[id]=all[id]||{h69:0,lost:false}; if(t.round!==s.round){ t.round=s.round; t.jok=0; t.jack=false; } return t; }
   achGive(id,a){ if(!this.achOn(id)) return; (this.pend=this.pend||{})[id]=this.pend[id]||new Set(); this.pend[id].add(a); }
+  achPoker(){
+    const s=this.s; if(!s||!s.hands||!rankedRules(s.rules)) return;
+    const seen=this.meta.pokerSeen=this.meta.pokerSeen||{};
+    for(const [pid,h] of Object.entries(s.hands)){
+      if(!this.achOn(pid)) continue;
+      const k=pokerHand(h); if(!k) continue;
+      const mine=seen[pid]=seen[pid]||[]; if(mine.includes(k)) continue;
+      mine.push(k); ((this.pokerPend=this.pokerPend||{})[pid]=this.pokerPend[pid]||new Set()).add(k);
+    }
+  }
   achThrow(id,cards){
     if(!this.achOn(id)) return;
     const t=this.achT(id), by={}; for(const c of cards){ const r=rank(c); by[r]=(by[r]||0)+1; }
@@ -342,6 +389,13 @@ export class Table {
       if(res.winner!==row.id) t.lost=true;
       else if(row.v<=0&&row.v>=-4) this.achGive(row.id,'w'+(-row.v));
     }
+    if(res.round===1||s.round===1) for(const p of s.players) if(p.out) this.achGive(p.id,'out1');
+    const dev=s.players.find(p=>p.dev&&!p.bot);
+    if(s.phase==='over'&&dev) for(const p of s.players){
+      if(p.bot||p.id===dev.id) continue;
+      this.achGive(p.id,'vsdev');
+      if(place[p.id]===1&&place[dev.id]!==1) this.achGive(p.id,'beatdev');
+    }
     if(s.phase==='over') for(const p of s.players){
       if(place[p.id]!==1||!this.achOn(p.id)) continue;
       const t=this.achT(p.id);
@@ -352,19 +406,19 @@ export class Table {
     }
   }
   async achFlush(){
-    const pend=this.pend; this.pend=null; if(!pend) return;
-    for(const [pid,set] of Object.entries(pend)){
-      const a=(this.meta.acct||{})[pid]; if(!a||!set.size) continue;
+    const pend=this.pend||{}, pp=this.pokerPend||{}; this.pend=null; this.pokerPend=null;
+    for(const pid of new Set([...Object.keys(pend),...Object.keys(pp)])){
+      const a=(this.meta.acct||{})[pid], set=pend[pid]||new Set(), pk=pp[pid]||new Set(); if(!a||(!set.size&&!pk.size)) continue;
       try{
-        const r=await this.acctStub().fetch('https://acct/achieve',{method:'POST',body:JSON.stringify({uid:a.uid,name:a.name,ids:[...set]})});
+        const r=await this.acctStub().fetch('https://acct/achieve',{method:'POST',body:JSON.stringify({uid:a.uid,name:a.name,ids:[...set],poker:[...pk]})});
         const {fresh,user}=await r.json();
-        if(fresh&&fresh.length) for(const w of this.sockets()) if(this.att(w).id===pid) this.sendTo(w,{t:'ach',ids:fresh,user});
+        for(const w of this.sockets()) if(this.att(w).id===pid) this.sendTo(w,{t:'ach',ids:fresh||[],user,poker:[...pk]});
       }catch(e){}
     }
   }
 
   async record(){
-    this.achRound(); await this.achFlush();
+    this.achRound(); this.achPoker(); await this.achFlush();
     const s=this.s;
     if(!s||s.phase!=='over'||!s.ranked||!s.result||this.meta.recorded===s.result.id) return;
     this.meta.recorded=s.result.id;
