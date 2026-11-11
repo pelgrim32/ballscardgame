@@ -12,6 +12,44 @@ const ID_RE=/^[A-Za-z0-9_-]{4,40}$/;
 const sid=()=>Math.random().toString(36).slice(2,10);
 const clean=(t,n)=>String(t==null?'':t).replace(/[\u0000-\u001f]/g,'').trim().slice(0,n);
 
+let lobbyCache=null, usageCache=null;
+/* today's use of the Cloudflare free plan, read from Cloudflare's analytics (needs the ANALYTICS_TOKEN and ACCOUNT_ID secrets) */
+const FREE={workerRequests:100000,doRequests:100000,doGbSeconds:13000,rowsRead:5000000,rowsWritten:100000,storedBytes:5e9};
+async function usage(env){
+  if(!env.ANALYTICS_TOKEN||!env.ACCOUNT_ID) return {configured:false,limits:FREE};
+  if(usageCache&&Date.now()-usageCache.at<60000) return usageCache.data;
+  const day=new Date().toISOString().slice(0,10), start=day+'T00:00:00Z', end=new Date().toISOString();
+  const q=async(dataset,filter,sel)=>{
+    const query=`query{viewer{accounts(filter:{accountTag:"${env.ACCOUNT_ID}"}){${dataset}(limit:10000,filter:${filter}){${sel}}}}}`;
+    try{
+      const r=await fetch('https://api.cloudflare.com/client/v4/graphql',{method:'POST',headers:{'content-type':'application/json',authorization:'Bearer '+env.ANALYTICS_TOKEN},body:JSON.stringify({query})});
+      const j=await r.json(); if(j.errors&&j.errors.length) return {error:j.errors[0].message};
+      return {rows:j.data.viewer.accounts[0][dataset]||[]};
+    }catch(e){ return {error:String(e.message||e)}; }
+  };
+  const total=(res,pick)=>res.rows?res.rows.reduce((a,x)=>a+(pick(x)||0),0):null;
+  const dt=`{datetime_geq:"${start}",datetime_leq:"${end}"}`, dd=`{date_geq:"${day}",date_leq:"${day}"}`;
+  const [w,inv,act,rows,units,sto]=await Promise.all([
+    q('workersInvocationsAdaptive',dt,'sum{requests}'),
+    q('durableObjectsInvocationsAdaptiveGroups',dd,'sum{requests}'),
+    q('durableObjectsPeriodicGroups',dd,'sum{activeTime}'),
+    q('durableObjectsPeriodicGroups',dd,'sum{rowsRead rowsWritten}'),
+    q('durableObjectsPeriodicGroups',dd,'sum{storageReadUnits storageWriteUnits}'),
+    q('durableObjectsStorageGroups',dd,'max{storedBytes}')
+  ]);
+  const data={configured:true,day,limits:FREE,at:Date.now(),
+    used:{
+      workerRequests:total(w,x=>x.sum&&x.sum.requests),
+      doRequests:total(inv,x=>x.sum&&x.sum.requests),
+      /* activeTime is in microseconds; Durable Objects are billed at 128 MB */
+      doGbSeconds:act.rows?Math.round(total(act,x=>x.sum&&x.sum.activeTime)/1e6*0.128):null,
+      rowsRead:rows.rows?total(rows,x=>x.sum&&x.sum.rowsRead):total(units,x=>x.sum&&x.sum.storageReadUnits),
+      rowsWritten:rows.rows?total(rows,x=>x.sum&&x.sum.rowsWritten):total(units,x=>x.sum&&x.sum.storageWriteUnits),
+      storedBytes:sto.rows?Math.max(0,...sto.rows.map(x=>x.max&&x.max.storedBytes||0)):null
+    },
+    errors:Object.fromEntries(Object.entries({w,inv,act,rows,units,sto}).filter(([k,v])=>v.error).map(([k,v])=>[k,v.error]))};
+  usageCache={at:Date.now(),data}; return data;
+}
 export default {
   async fetch(req, env){
     try{ return await route(req, env); }
@@ -28,10 +66,27 @@ async function route(req, env){
       const r=await env.ACCOUNTS.get(env.ACCOUNTS.idFromName('accounts')).fetch('https://acct/'+acc[1],{method:'POST',body:await req.text()});
       return new Response(await r.text(),{status:r.status,headers:{'content-type':'application/json',...CORS}});
     }
+    /* developer tools: only the account with the dev role gets past the check */
+    const adm=url.pathname.match(/^\/api\/admin\/(usage|get|save|list)$/);
+    if(adm){
+      if(req.method!=='POST') return json({error:'Use POST.'},405);
+      const body=await req.text(); let b={}; try{ b=JSON.parse(body)||{}; }catch(e){}
+      const acct=env.ACCOUNTS.get(env.ACCOUNTS.idFromName('accounts'));
+      const who=await acct.fetch('https://acct/verify',{method:'POST',body:JSON.stringify({token:b.token})});
+      const me=who.ok?await who.json():null;
+      if(!me||!me.dev) return json({error:'forbidden'},403);
+      if(adm[1]==='usage') return json(await usage(env));
+      const r=await acct.fetch('https://acct/admin-'+adm[1],{method:'POST',body});
+      return new Response(await r.text(),{status:r.status,headers:{'content-type':'application/json',...CORS}});
+    }
     if(url.pathname==='/api/lobby'){
-      const stub=env.LOBBY.get(env.LOBBY.idFromName('lobby'));
-      const r=await stub.fetch('https://lobby/list');
-      return new Response(await r.text(),{headers:{'content-type':'application/json',...CORS}});
+      /* the open-table list is asked for every 20 s by every open home screen: keep a copy for a few seconds */
+      const now=Date.now();
+      if(!lobbyCache||now-lobbyCache.at>4000){
+        const r=await env.LOBBY.get(env.LOBBY.idFromName('lobby')).fetch('https://lobby/list');
+        lobbyCache={at:now,text:await r.text()};
+      }
+      return new Response(lobbyCache.text,{headers:{'content-type':'application/json',...CORS}});
     }
     const m=url.pathname.match(/^\/api\/table\/([A-Z]{4})$/);
     if(m){
@@ -146,6 +201,23 @@ export class Accounts {
         await st.put(keyOf(u.name),u); return out({ok:true});
       }
       case 'verify': { const u=await session(b.token); return u?out({uid:u.uid,name:u.name,dev:u.role==='dev'}):no('auth',401); }
+      /* admin-*: the worker has already checked that the caller is the dev account */
+      case 'admin-list': {
+        const all=await st.list({prefix:'u:',limit:1000}); const users=[];
+        for(const u of all.values()) users.push({name:u.name,wins:u.wins||0,losses:u.losses||0,played:u.played||0,ach:Object.keys(u.ach||{}).length,dev:u.role==='dev',created:u.created});
+        users.sort((a,b)=>b.played-a.played||a.name.localeCompare(b.name));
+        return out({users,count:users.length});
+      }
+      case 'admin-get': { const u=await st.get(keyOf(b.name)); return u?out({user:{...pub(u),uid:u.uid,role:u.role||'player'}}):no('nouser',404); }
+      case 'admin-save': {
+        const u=await st.get(keyOf(b.name)); if(!u) return no('nouser',404);
+        const p=b.patch||{}, int=v=>Math.max(0,Math.min(1e6,Math.floor(Number(v)||0)));
+        for(const k of ['wins','losses','played','streak','best']) if(k in p) u[k]=int(p[k]);
+        if(p.ach&&typeof p.ach==='object'){ const a={}; for(const id of ACH_IDS) if(p.ach[id]) a[id]=u.ach&&u.ach[id]||Date.now(); u.ach=a; }
+        if(p.poker&&typeof p.poker==='object'){ const a={}; for(const h of POKER) if(p.poker[h]) a[h]=u.poker&&u.poker[h]||Date.now(); u.poker=a; }
+        await st.put(keyOf(u.name),u);
+        return out({user:{...pub(u),uid:u.uid,role:u.role||'player'}});
+      }
       case 'achieve': {
         const u=await st.get(keyOf(b.name)); if(!u||u.uid!==b.uid) return out({fresh:[]});
         const ids=(Array.isArray(b.ids)?b.ids:[]).slice(0,40); let changed=false;
@@ -193,15 +265,25 @@ export class Lobby {
 
 /* ---------- one game table ---------- */
 export class Table {
-  constructor(ctx, env){ this.ctx=ctx; this.env=env; this.loaded=false; }
+  constructor(ctx, env){
+    this.ctx=ctx; this.env=env; this.loaded=false; this.saved={};
+    /* heartbeat: the runtime answers "ping" with "pong" itself, so it costs no request and doesn't wake the table */
+    try{ if(typeof WebSocketRequestResponsePair!=='undefined') ctx.setWebSocketAutoResponse(new WebSocketRequestResponsePair('ping','pong')); }catch(e){}
+  }
 
   async load(){
     if(this.loaded) return;
     const got=await this.ctx.storage.get(['s','sec','chat','meta']);
     this.s=got.get('s')||null; this.sec=got.get('sec')||{}; this.chat=got.get('chat')||[]; this.meta=got.get('meta')||{away:{},listed:null,code:null};
+    for(const k of ['s','sec','chat','meta']) if(got.has(k)) this.saved[k]=JSON.stringify(got.get(k));
     this.loaded=true;
   }
-  async save(){ await this.ctx.storage.put({s:this.s,sec:this.sec,chat:this.chat,meta:this.meta}); }
+  /* every key written is a "row written" on the free plan (100k a day), so only write what changed */
+  async save(){
+    const out={};
+    for(const [k,v] of Object.entries({s:this.s,sec:this.sec,chat:this.chat,meta:this.meta})){ const j=JSON.stringify(v); if(this.saved[k]!==j){ out[k]=v; this.saved[k]=j; } }
+    if(Object.keys(out).length) await this.ctx.storage.put(out);
+  }
 
   async fetch(req){
     const code=(new URL(req.url).pathname.match(/([A-Z]{4})$/)||[])[1];
@@ -525,14 +607,17 @@ export class Table {
     if(changed){ await this.record(); await this.save(); this.broadcast(); await this.listing(); }
     await this.schedule();
   }
+  /* setting an alarm is also a row written: only touch it when the time actually moves */
   async schedule(){
     const next=this.dueList().sort((a,b)=>a.at-b.at)[0];
-    if(next) await this.ctx.storage.setAlarm(Math.max(Date.now()+250,next.at,this.meta.waitUntil||0)); else await this.ctx.storage.deleteAlarm();
+    const cur=await this.ctx.storage.getAlarm();
+    if(next){ const at=Math.max(Date.now()+250,next.at,this.meta.waitUntil||0); if(cur==null||Math.abs(cur-at)>200) await this.ctx.storage.setAlarm(at); }
+    else if(cur!=null) await this.ctx.storage.deleteAlarm();
   }
   async close(){
     try{ await this.unlist(); }catch(e){}
     for(const w of this.sockets()){ try{ w.close(1000,'closed'); }catch(e){} }
-    await this.ctx.storage.deleteAlarm(); await this.ctx.storage.deleteAll();
+    await this.ctx.storage.deleteAlarm(); await this.ctx.storage.deleteAll(); this.saved={};
     this.s=null; this.sec={}; this.chat=[]; this.meta={away:{},listed:null,code:this.meta.code};
   }
 

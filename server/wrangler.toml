@@ -22,3 +22,6 @@ new_sqlite_classes = ["Table", "Lobby"]
 [[migrations]]
 tag = "v2"
 new_sqlite_classes = ["Accounts"]
+
+[observability]
+enabled = true
