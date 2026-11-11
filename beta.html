@@ -65,6 +65,8 @@ input.txt::placeholder{color:rgba(255,255,255,.35)}
 .rgrid select,.rgrid input[type=number]{font:inherit;font-size:15px;color:var(--ink);background:var(--panel-lo);border:2px solid var(--line);border-radius:6px;padding:5px 8px}
 .rgrid input[type=number]{width:3.6em;padding:4px 6px}
 .rgrid select:disabled,.rgrid input:disabled{opacity:.7}
+.rgrid .rsec{grid-column:1/-1;margin:10px 0 0;font-size:17px}
+.rgrid .rnote{grid-column:1/-1;margin:-4px 0 0}
 .rgrid input[type=checkbox]{accent-color:var(--gold);width:18px;height:18px;vertical-align:-3px}
 .rgrid .switch{display:flex;align-items:center;gap:6px;justify-self:end;font-size:13px;color:var(--ink-dim)}
 .rreset-n{display:flex;align-items:center;gap:4px;font-size:13px;color:var(--ink-dim);justify-self:end}
@@ -217,89 +219,32 @@ html .deck .card{position:absolute;left:0;top:0}
 .skin-pixel .card.small .tl svg{width:8px}
 .skin-pixel .card.small.joker .tl{font-size:5px}
 
-/* ---------- cards: classic theme (serif traditional deck) ---------- */
-.skin-classic .card{--c:#1b1b1b;width:var(--cw);height:calc(var(--cw)*1.4);border-radius:calc(var(--cw)*.09);background:#fffdf7;border:1px solid #cfc8b8;box-sizing:border-box;position:relative;flex:none;box-shadow:0 3px 8px rgba(0,0,0,.35);user-select:none;color:var(--c);font-family:"Libre Baskerville",Georgia,"Times New Roman",serif;overflow:hidden}
-.skin-classic .card.red{--c:#c4161c}
-.skin-classic .card .idx{position:absolute;display:flex;flex-direction:column;align-items:center;line-height:.95;font-weight:700;font-size:calc(var(--cw)*.19);letter-spacing:-.04em;z-index:2}
-.skin-classic .card .idx i{font-style:normal;font-size:calc(var(--cw)*.16);letter-spacing:0}
-.skin-classic .card .tl{left:5%;top:4%}.skin-classic .card .br{right:5%;bottom:4%;transform:rotate(180deg)}
-.skin-classic .card .pips{position:absolute;inset:11% 21%}
-.skin-classic .card .pips i{position:absolute;font-style:normal;font-size:calc(var(--cw)*.2);line-height:1;transform:translate(-50%,-50%)}
-.skin-classic .card .pips i.f{transform:translate(-50%,-50%) rotate(180deg)}
-.skin-classic .card .pips i.ace{font-size:calc(var(--cw)*.55)}
-.skin-classic .card .court{position:absolute;inset:12% 18%;border:1.5px solid var(--c);border-radius:3px;background:linear-gradient(#fff6dd,#f3e3b6);display:flex;flex-direction:column;align-items:center;justify-content:center;gap:2%}
-.skin-classic .card .court svg{width:78%;height:auto}
-.skin-classic .card .court b{font-size:calc(var(--cw)*.3);line-height:1}
-.skin-classic .card.joker .idx{font-size:calc(var(--cw)*.11);letter-spacing:0;line-height:1.02}
-.skin-classic .card.joker .art{position:absolute;inset:11% 14% 9%;border-radius:5px;overflow:hidden;box-shadow:0 0 0 1.5px #2b2d42}
-.skin-classic .card.joker .art svg{width:100%;height:100%;display:block}
-.skin-classic .card.back{background:#fffdf7}
-.skin-classic .card.back .lattice{position:absolute;inset:calc(var(--cw)*.06);border-radius:calc(var(--cw)*.05);background-color:#8e1b22;background-image:repeating-linear-gradient(45deg,rgba(255,255,255,.22) 0 1.5px,transparent 1.5px 7px),repeating-linear-gradient(-45deg,rgba(255,255,255,.22) 0 1.5px,transparent 1.5px 7px);box-shadow:inset 0 0 0 2px #8e1b22,inset 0 0 0 3.5px rgba(255,255,255,.5)}
-.skin-classic .card.back .lattice::after{content:"";position:absolute;left:50%;top:50%;width:34%;aspect-ratio:1;transform:translate(-50%,-50%) rotate(45deg);background:#8e1b22;border:2px solid rgba(255,255,255,.6)}
-.skin-classic .card.new{animation:deal2 .35s ease-out}
+/* ---------- cards: the classic deck, shared by the Classic, Neon and Sketch themes ---------- */
+.skin-classic .card,.skin-neon .card,.skin-sketch .card{--c:#1b1b1b;width:var(--cw);height:calc(var(--cw)*1.4);border-radius:calc(var(--cw)*.09);background:#fffdf7;border:1px solid #cfc8b8;box-sizing:border-box;position:relative;flex:none;box-shadow:0 3px 8px rgba(0,0,0,.35);user-select:none;color:var(--c);font-family:"Libre Baskerville",Georgia,"Times New Roman",serif;overflow:hidden}
+.skin-classic .card.red,.skin-neon .card.red,.skin-sketch .card.red{--c:#c4161c}
+.skin-classic .card .idx,.skin-neon .card .idx,.skin-sketch .card .idx{position:absolute;display:flex;flex-direction:column;align-items:center;line-height:.95;font-weight:700;font-size:calc(var(--cw)*.19);letter-spacing:-.04em;z-index:2}
+.skin-classic .card .idx i,.skin-neon .card .idx i,.skin-sketch .card .idx i{font-style:normal;font-size:calc(var(--cw)*.16);letter-spacing:0}
+.skin-classic .card .tl,.skin-neon .card .tl,.skin-sketch .card .tl{left:5%;top:4%}.skin-classic .card .br{right:5%;bottom:4%;transform:rotate(180deg)}
+.skin-classic .card .pips,.skin-neon .card .pips,.skin-sketch .card .pips{position:absolute;inset:11% 21%}
+.skin-classic .card .pips i,.skin-neon .card .pips i,.skin-sketch .card .pips i{position:absolute;font-style:normal;font-size:calc(var(--cw)*.2);line-height:1;transform:translate(-50%,-50%)}
+.skin-classic .card .pips i.f,.skin-neon .card .pips i.f,.skin-sketch .card .pips i.f{transform:translate(-50%,-50%) rotate(180deg)}
+.skin-classic .card .pips i.ace,.skin-neon .card .pips i.ace,.skin-sketch .card .pips i.ace{font-size:calc(var(--cw)*.55)}
+.skin-classic .card .court,.skin-neon .card .court,.skin-sketch .card .court{position:absolute;inset:12% 18%;border:1.5px solid var(--c);border-radius:3px;background:linear-gradient(#fff6dd,#f3e3b6);display:flex;flex-direction:column;align-items:center;justify-content:center;gap:2%}
+.skin-classic .card .court svg,.skin-neon .card .court svg,.skin-sketch .card .court svg{width:78%;height:auto}
+.skin-classic .card .court b,.skin-neon .card .court b,.skin-sketch .card .court b{font-size:calc(var(--cw)*.3);line-height:1}
+.skin-classic .card.joker .idx,.skin-neon .card.joker .idx,.skin-sketch .card.joker .idx{font-size:calc(var(--cw)*.11);letter-spacing:0;line-height:1.02}
+.skin-classic .card.joker .art,.skin-neon .card.joker .art,.skin-sketch .card.joker .art{position:absolute;inset:11% 14% 9%;border-radius:5px;overflow:hidden;box-shadow:0 0 0 1.5px #2b2d42}
+.skin-classic .card.joker .art svg,.skin-neon .card.joker .art svg,.skin-sketch .card.joker .art svg{width:100%;height:100%;display:block}
+.skin-classic .card.back,.skin-neon .card.back,.skin-sketch .card.back{background:#fffdf7}
+.skin-classic .card.back .lattice,.skin-neon .card.back .lattice,.skin-sketch .card.back .lattice{position:absolute;inset:calc(var(--cw)*.06);border-radius:calc(var(--cw)*.05);background-color:#8e1b22;background-image:repeating-linear-gradient(45deg,rgba(255,255,255,.22) 0 1.5px,transparent 1.5px 7px),repeating-linear-gradient(-45deg,rgba(255,255,255,.22) 0 1.5px,transparent 1.5px 7px);box-shadow:inset 0 0 0 2px #8e1b22,inset 0 0 0 3.5px rgba(255,255,255,.5)}
+.skin-classic .card.back .lattice::after,.skin-neon .card.back .lattice::after,.skin-sketch .card.back .lattice::after{content:"";position:absolute;left:50%;top:50%;width:34%;aspect-ratio:1;transform:translate(-50%,-50%) rotate(45deg);background:#8e1b22;border:2px solid rgba(255,255,255,.6)}
+.skin-classic .card.new,.skin-neon .card.new,.skin-sketch .card.new{animation:deal2 .35s ease-out}
 @keyframes deal2{from{transform:translateY(-40px) rotate(-8deg) scale(.8);opacity:0}}
-.skin-classic .card.small{--cw:30px;height:42px}
-.skin-classic .card.small .pips,.skin-classic .card.small .court,.skin-classic .card.small .art,.skin-classic .card.small .br{display:none}
-.skin-classic .card.small .tl{left:0;right:0;top:12%;font-size:11px}
-.skin-classic .card.small .tl i{font-size:11px}
-.skin-classic .card.small.joker .tl{font-size:5.5px}
-
-/* ---------- cards: Neon (classic deck, glowing) ---------- */
-.skin-neon .card{--c:#1b1b1b;width:var(--cw);height:calc(var(--cw)*1.4);border-radius:calc(var(--cw)*.09);background:#fffdf7;border:1px solid #cfc8b8;box-sizing:border-box;position:relative;flex:none;box-shadow:0 3px 8px rgba(0,0,0,.35);user-select:none;color:var(--c);font-family:"Libre Baskerville",Georgia,"Times New Roman",serif;overflow:hidden}
-.skin-neon .card.red{--c:#c4161c}
-.skin-neon .card .idx{position:absolute;display:flex;flex-direction:column;align-items:center;line-height:.95;font-weight:700;font-size:calc(var(--cw)*.19);letter-spacing:-.04em;z-index:2}
-.skin-neon .card .idx i{font-style:normal;font-size:calc(var(--cw)*.16);letter-spacing:0}
-.skin-neon .card .tl{left:5%;top:4%}.skin-neon .card .br{right:5%;bottom:4%;transform:rotate(180deg)}
-.skin-neon .card .pips{position:absolute;inset:11% 21%}
-.skin-neon .card .pips i{position:absolute;font-style:normal;font-size:calc(var(--cw)*.2);line-height:1;transform:translate(-50%,-50%)}
-.skin-neon .card .pips i.f{transform:translate(-50%,-50%) rotate(180deg)}
-.skin-neon .card .pips i.ace{font-size:calc(var(--cw)*.55)}
-.skin-neon .card .court{position:absolute;inset:12% 18%;border:1.5px solid var(--c);border-radius:3px;background:linear-gradient(#fff6dd,#f3e3b6);display:flex;flex-direction:column;align-items:center;justify-content:center;gap:2%}
-.skin-neon .card .court svg{width:78%;height:auto}
-.skin-neon .card .court b{font-size:calc(var(--cw)*.3);line-height:1}
-.skin-neon .card.joker .idx{font-size:calc(var(--cw)*.11);letter-spacing:0;line-height:1.02}
-.skin-neon .card.joker .art{position:absolute;inset:11% 14% 9%;border-radius:5px;overflow:hidden;box-shadow:0 0 0 1.5px #2b2d42}
-.skin-neon .card.joker .art svg{width:100%;height:100%;display:block}
-.skin-neon .card.back{background:#fffdf7}
-.skin-neon .card.back .lattice{position:absolute;inset:calc(var(--cw)*.06);border-radius:calc(var(--cw)*.05);background-color:#8e1b22;background-image:repeating-linear-gradient(45deg,rgba(255,255,255,.22) 0 1.5px,transparent 1.5px 7px),repeating-linear-gradient(-45deg,rgba(255,255,255,.22) 0 1.5px,transparent 1.5px 7px);box-shadow:inset 0 0 0 2px #8e1b22,inset 0 0 0 3.5px rgba(255,255,255,.5)}
-.skin-neon .card.back .lattice::after{content:"";position:absolute;left:50%;top:50%;width:34%;aspect-ratio:1;transform:translate(-50%,-50%) rotate(45deg);background:#8e1b22;border:2px solid rgba(255,255,255,.6)}
-.skin-neon .card.new{animation:deal2 .35s ease-out}
-@keyframes deal2{from{transform:translateY(-40px) rotate(-8deg) scale(.8);opacity:0}}
-.skin-neon .card.small{--cw:30px;height:42px}
-.skin-neon .card.small .pips,.skin-neon .card.small .court,.skin-neon .card.small .art,.skin-neon .card.small .br{display:none}
-.skin-neon .card.small .tl{left:0;right:0;top:12%;font-size:11px}
-.skin-neon .card.small .tl i{font-size:11px}
-.skin-neon .card.small.joker .tl{font-size:5.5px}
-
-/* ---------- cards: Sketch (classic deck, hand-drawn) ---------- */
-.skin-sketch .card{--c:#1b1b1b;width:var(--cw);height:calc(var(--cw)*1.4);border-radius:calc(var(--cw)*.09);background:#fffdf7;border:1px solid #cfc8b8;box-sizing:border-box;position:relative;flex:none;box-shadow:0 3px 8px rgba(0,0,0,.35);user-select:none;color:var(--c);font-family:"Libre Baskerville",Georgia,"Times New Roman",serif;overflow:hidden}
-.skin-sketch .card.red{--c:#c4161c}
-.skin-sketch .card .idx{position:absolute;display:flex;flex-direction:column;align-items:center;line-height:.95;font-weight:700;font-size:calc(var(--cw)*.19);letter-spacing:-.04em;z-index:2}
-.skin-sketch .card .idx i{font-style:normal;font-size:calc(var(--cw)*.16);letter-spacing:0}
-.skin-sketch .card .tl{left:5%;top:4%}.skin-sketch .card .br{right:5%;bottom:4%;transform:rotate(180deg)}
-.skin-sketch .card .pips{position:absolute;inset:11% 21%}
-.skin-sketch .card .pips i{position:absolute;font-style:normal;font-size:calc(var(--cw)*.2);line-height:1;transform:translate(-50%,-50%)}
-.skin-sketch .card .pips i.f{transform:translate(-50%,-50%) rotate(180deg)}
-.skin-sketch .card .pips i.ace{font-size:calc(var(--cw)*.55)}
-.skin-sketch .card .court{position:absolute;inset:12% 18%;border:1.5px solid var(--c);border-radius:3px;background:linear-gradient(#fff6dd,#f3e3b6);display:flex;flex-direction:column;align-items:center;justify-content:center;gap:2%}
-.skin-sketch .card .court svg{width:78%;height:auto}
-.skin-sketch .card .court b{font-size:calc(var(--cw)*.3);line-height:1}
-.skin-sketch .card.joker .idx{font-size:calc(var(--cw)*.11);letter-spacing:0;line-height:1.02}
-.skin-sketch .card.joker .art{position:absolute;inset:11% 14% 9%;border-radius:5px;overflow:hidden;box-shadow:0 0 0 1.5px #2b2d42}
-.skin-sketch .card.joker .art svg{width:100%;height:100%;display:block}
-.skin-sketch .card.back{background:#fffdf7}
-.skin-sketch .card.back .lattice{position:absolute;inset:calc(var(--cw)*.06);border-radius:calc(var(--cw)*.05);background-color:#8e1b22;background-image:repeating-linear-gradient(45deg,rgba(255,255,255,.22) 0 1.5px,transparent 1.5px 7px),repeating-linear-gradient(-45deg,rgba(255,255,255,.22) 0 1.5px,transparent 1.5px 7px);box-shadow:inset 0 0 0 2px #8e1b22,inset 0 0 0 3.5px rgba(255,255,255,.5)}
-.skin-sketch .card.back .lattice::after{content:"";position:absolute;left:50%;top:50%;width:34%;aspect-ratio:1;transform:translate(-50%,-50%) rotate(45deg);background:#8e1b22;border:2px solid rgba(255,255,255,.6)}
-.skin-sketch .card.new{animation:deal2 .35s ease-out}
-@keyframes deal2{from{transform:translateY(-40px) rotate(-8deg) scale(.8);opacity:0}}
-.skin-sketch .card.small{--cw:30px;height:42px}
-.skin-sketch .card.small .pips,.skin-sketch .card.small .court,.skin-sketch .card.small .art,.skin-sketch .card.small .br{display:none}
-.skin-sketch .card.small .tl{left:0;right:0;top:12%;font-size:11px}
-.skin-sketch .card.small .tl i{font-size:11px}
-.skin-sketch .card.small.joker .tl{font-size:5.5px}
-
-
-@keyframes deal2{from{transform:translateY(-40px) rotate(-8deg) scale(.8);opacity:0}}
+.skin-classic .card.small,.skin-neon .card.small,.skin-sketch .card.small{--cw:30px;height:42px}
+.skin-classic .card.small .pips,.skin-classic .card.small .court,.skin-classic .card.small .art,.skin-classic .card.small .br,.skin-neon .card.small .pips,.skin-neon .card.small .court,.skin-neon .card.small .art,.skin-neon .card.small .br,.skin-sketch .card.small .pips,.skin-sketch .card.small .court,.skin-sketch .card.small .art,.skin-sketch .card.small .br{display:none}
+.skin-classic .card.small .tl,.skin-neon .card.small .tl,.skin-sketch .card.small .tl{left:0;right:0;top:12%;font-size:11px}
+.skin-classic .card.small .tl i,.skin-neon .card.small .tl i,.skin-sketch .card.small .tl i{font-size:11px}
+.skin-classic .card.small.joker .tl,.skin-neon .card.small.joker .tl,.skin-sketch .card.small.joker .tl{font-size:5.5px}
 
 
 
@@ -574,10 +519,10 @@ html .deck .card{position:absolute;left:0;top:0}
 .chatlog .me b{color:var(--gold)}
 .chatlog .empty{color:var(--ink-dim);margin:auto;text-align:center}
 .bubble.react{font-size:30px;padding:2px 8px;border-color:transparent;background:rgba(0,0,0,.35);box-shadow:none}
-.bubble.say{--be:var(--line);white-space:normal;max-width:240px;text-align:left;font-weight:500;font-size:14px;line-height:1.3;padding:6px 10px;border-color:var(--be);border-radius:12px;margin-top:-10px;animation-duration:3s;z-index:17}
+.bubble.say{animation-name:chatbub;--be:var(--line);white-space:normal;max-width:240px;text-align:left;font-weight:500;font-size:14px;line-height:1.3;padding:6px 10px;border-color:var(--be);border-radius:12px;margin-top:-10px;animation-duration:3s;z-index:17}
 .bubble.say b{font-weight:700;color:var(--gold)}
 .bubble.say::after{content:"";position:absolute;left:50%;bottom:-9px;transform:translateX(-50%);border:8px solid transparent;border-bottom:0;border-top-color:var(--be)}
-@keyframes bub{0%{opacity:0;margin-top:-4px}10%{opacity:1;margin-top:-10px}85%{opacity:1}100%{opacity:0;margin-top:-16px}}
+@keyframes chatbub{0%{opacity:0;margin-top:-4px}10%{opacity:1;margin-top:-10px}85%{opacity:1}100%{opacity:0;margin-top:-16px}}
 .ui-felt .bubble.say{--be:#ffcf2e;border-radius:14px}
 .ui-felt .bubble.say b{color:#ffcf2e}
 .skin-classic .bubble.say{--be:var(--brass);border-radius:8px}
@@ -622,6 +567,7 @@ h4.sec{margin:4px 0 -4px;font-size:15px;font-weight:700;color:var(--ink-dim);tex
 /* ---------- overlays ---------- */
 .overlay{position:fixed;inset:0;background:rgba(10,20,22,.78);display:flex;align-items:center;justify-content:center;padding:calc(16px + env(safe-area-inset-top,0px)) max(16px,env(safe-area-inset-right,0px)) calc(16px + env(safe-area-inset-bottom,0px)) max(16px,env(safe-area-inset-left,0px));z-index:20}
 .sheet{background:var(--panel);border:3px solid var(--line);border-radius:12px;padding:16px;width:100%;max-width:460px;max-height:100%;overflow-y:auto;box-sizing:border-box;display:flex;flex-direction:column;gap:12px;box-shadow:0 8px 0 var(--panel-lo)}
+.sheet>*{flex-shrink:0}
 .sheet h3{font-weight:700;font-size:25px;margin:0;text-wrap:balance;line-height:1.1}
 .sheet h3 .hl{color:var(--red)}
 .sheet .sub{margin:0;color:var(--ink-dim);font-size:15px;line-height:1.35}
@@ -649,8 +595,9 @@ h4.sec{margin:4px 0 -4px;font-size:15px;font-weight:700;color:var(--ink-dim);tex
   :root{--cwmax:clamp(80px,15vh,170px)}
   .screen{max-width:1100px}
   .home .panel{gap:14px} .tag{font-size:17px}
-  .home{display:grid;grid-template-columns:repeat(2,minmax(0,380px));justify-content:center;align-content:center;gap:14px 18px}
+  .home{display:grid;grid-template-columns:repeat(2,minmax(0,380px));justify-content:center;align-content:safe center;align-items:start;gap:14px 18px}
   .home.lobby{align-content:start;align-items:start}
+  .home.lobby>.panel:nth-child(2){grid-row:span 2}
   .home.lobby .lobby-actions{grid-column:1/-1;justify-content:center}
   .home>:first-child{margin-top:0}.home>:last-child{margin-bottom:0}
   .home .logo,.home .tag{grid-column:1/-1;justify-self:center}
@@ -707,8 +654,8 @@ const L=(en,nl)=>lang==='nl'?nl:en;
 const GAME=()=>L('Balls!','Balzakken');
 const VERSION='1.7.0-beta';
 const DEVLOG=[
-  {v:'1.7.0-beta',d:'11-11-2026',en:['Win streaks','Collect all 9 poker hands','8 new achievements, including streaks, playing giel and Completionist'],
-                            nl:['Winstreeks','Verzamel alle 9 pokerhanden','8 nieuwe prestaties, met reeksen, spelen tegen giel en Alles verzameld']},
+  {v:'1.7.0-beta',d:'11-11-2026',en:['Win streaks','Collect all 9 poker hands','10 new achievements, including streaks, playing giel and Completionist','Game mode Hot potato: one Joker that the next player has to take'],
+                            nl:['Winstreeks','Verzamel alle 9 pokerhanden','10 nieuwe prestaties, met reeksen, spelen tegen giel en Alles verzameld','Spelvorm Hete aardappel: één joker die de volgende speler moet pakken']},
   {v:'1.6.2',d:'11-11-2026',en:['Online play is back on the old system for now. Accounts, win/loss and achievements live on the beta page'],
                             nl:['Online spelen draait voorlopig weer op het oude systeem. Accounts, winst/verlies en prestaties staan op de betapagina']},
   {v:'1.6.1',d:'11-11-2026',en:['The match summary shows your own stats first, everyone else\'s are one tap away'],
@@ -740,7 +687,7 @@ applyLang();
 const SUITS = ['H','D','C','S'], RANKS = ['A','2','3','4','5','6','7','8','9','10','J','Q','K'];
 const SYM = {H:'♥',D:'♦',C:'♣',S:'♠'};
 const DEFAULT_RULES = { startHand:5, decks:1, jokers:4, maxPlayers:6, callMax:5, falsePenalty:25, elimAt:101, jokerVal:25, jackVal:-1,
-  resetA:{on:true,from:100,to:70}, resetB:{on:true,from:69,to:0}, speed:'normal', turnTimer:0, autoNext:true, botLevel:'normal', pub:false };
+  resetA:{on:true,from:100,to:70}, resetB:{on:true,from:69,to:0}, speed:'normal', turnTimer:0, autoNext:true, botLevel:'normal', pub:false, hotPotato:false };
 const SPEED = { relaxed:{cd:5000,bot:1.5}, normal:{cd:3000,bot:1}, fast:{cd:2000,bot:.55} };
 function deriveRules(r){
   const x={...DEFAULT_RULES,...(r||{})}; const resets={};
@@ -751,11 +698,13 @@ function deriveRules(r){
 let RULES = deriveRules(null);
 function useRules(s){ RULES=deriveRules(s&&s.rules); }
 /* win/loss only counts when the card rules are the standard ones (speed, timer and bots don't matter) */
-function rankedRules(r){ const R=deriveRules(r), d=deriveRules(null); return ['startHand','decks','jokers','callMax','falsePenalty','elimAt','jokerVal','jackVal'].every(k=>R[k]===d[k]) && JSON.stringify(R.resets)===JSON.stringify(d.resets); }
-function cardsNeeded(r,n){ const R=deriveRules(r); return {need:n*R.startHand+1, have:R.decks*(52+R.jokers)}; }
+function rankedRules(r){ const R=deriveRules(r), d=deriveRules(null); return !R.hotPotato && ['startHand','decks','jokers','callMax','falsePenalty','elimAt','jokerVal','jackVal'].every(k=>R[k]===d[k]) && JSON.stringify(R.resets)===JSON.stringify(d.resets); }
+function cardsNeeded(r,n){ const R=deriveRules(r); return {need:n*R.startHand+1, have:R.decks*52+(R.hotPotato?1:R.decks*R.jokers)}; }
+/* Hot potato: one Joker in the game, and whoever throws it makes the next player take it */
+const potatoCard = s => RULES.hotPotato ? (s.avail||[]).find(c=>rank(c)==='X') : null;
 
 const fullDeck = () => { const d=[];
-  for(let k=0;k<RULES.decks;k++){ const sfx=k?'#'+(k+1):''; for (const s of SUITS) for (const r of RANKS) d.push(s+'-'+r+sfx); for (let i=1;i<=RULES.jokers;i++) d.push('X-'+(k*4+i)); }
+  for(let k=0;k<RULES.decks;k++){ const sfx=k?'#'+(k+1):''; for (const s of SUITS) for (const r of RANKS) d.push(s+'-'+r+sfx); const nj=RULES.hotPotato?(k?0:1):RULES.jokers; for (let i=1;i<=nj;i++) d.push('X-'+(k*4+i)); }
   return d; };
 const rank = c => c[0]==='X' ? 'X' : c.slice(2).split('#')[0];
 const suit = c => c[0];
@@ -765,7 +714,7 @@ function shuffle(a){ a=a.slice(); for(let i=a.length-1;i>0;i--){const j=Math.flo
 const validThrow = cs => cs.length===1 || (cs.length>=2 && cs.every(c=>rank(c)===rank(cs[0])));
 const aliveList = s => s.players.filter(p=>!p.out);
 function nextAlive(s,i){ const n=s.players.length; for(let k=1;k<=n;k++){const j=(i+k)%n; if(!s.players[j].out) return j;} return i; }
-const pname = (s,id) => (s.players.find(p=>p.id===id)||{}).name || 'Someone';
+const pname = (s,id) => (s.players.find(p=>p.id===id)||{}).name || L('Someone','Iemand');
 function fmtLog(e){
   if(!e) return {who:'',rest:''};
   if(typeof e==='string') return {who:'',rest:e};
@@ -823,6 +772,8 @@ function doThrow(s,id,cards){
 }
 function doDraw(s,id,src,card){
   if(!isTurn(s,id)||s.step!=='draw') return L('Throw first, then grab a card.','Eerst gooien, dan een kaart pakken.');
+  const hp=potatoCard(s);
+  if(hp&&!(src==='avail'&&card===hp)) return L('Hot potato! You have to take the Joker.','Hete aardappel! Je moet de joker pakken.');
   let c;
   if(src==='deck'){
     if(!s.deck.length){ s.deck=shuffle(s.pile); s.pile=[]; }
@@ -932,6 +883,7 @@ function botThrowFor(s,id,lvl='hard'){
   const p=planTurn(s,id,lvl); return p&&p.T?p.T:botThrow(h);
 }
 function botDraw(s,id,lvl='hard'){
+  const hp=potatoCard(s); if(hp) return ['avail',hp];
   if(!s.deck.length&&!s.pile.length&&s.avail.length) return ['avail',s.avail.reduce((a,c)=>val(c)<val(a)?c:a)];
   if(lvl==='easy'){ const low=s.avail.reduce((a,c)=>!a||val(c)<val(a)?c:a,null); return low&&val(low)<=2?['avail',low]:['deck']; }
   const p=planTurn(s,id,lvl);
@@ -1274,6 +1226,7 @@ const ACH=[
   ['j2',L('Double trouble','Dubbel pech'),L('Grab 2 Jokers in one round','Pak 2 jokers in één ronde')],
   ['j4',L('The whole circus','Het hele circus'),L('Grab all 4 Jokers in one round','Pak alle 4 jokers in één ronde')],
   ['t3j',L('Clown dump','Clowns lozen'),L('Throw away 3 Jokers at once','Gooi 3 jokers tegelijk weg')],
+  ['t4j',L('Circus closed','Circus dicht'),L('Throw away 4 Jokers at once','Gooi 4 jokers tegelijk weg')],
   ['t4',L('Four of a kind','Carré'),L('Throw away 4 of the same card at once','Gooi 4 dezelfde kaarten tegelijk weg')],
   ['tj',L('Hit the road, Jack','Dag boer'),L('Throw away a Jack','Gooi een boer weg')],
   ['tjj',L('Fair trade','Eerlijke ruil'),L('Throw away a Jack, then grab a Joker','Gooi een boer weg en pak daarna een joker')],
@@ -1282,6 +1235,7 @@ const ACH=[
   ['win1',L('First of many','De eerste van vele'),L('Win a match','Win een potje')],
   ['balls1',L('Called it','Mooi geroepen'),L('Call Balls and win the round','Roep Balzak en win de ronde')],
   ['quick',L('Quick draw','Snel geschoten'),L('Call Balls on your first chance and win','Roep Balzak bij je eerste kans en win')],
+  ['early',L('No time to waste','Geen tijd te verliezen'),L('Call Balls at your very first chance','Roep Balzak bij je allereerste kans')],
   ['gotcha',L('Gotcha','Hebbes'),L('Beat someone else\'s Balls call','Versla iemand die Balzak roept')],
   ['oops',L('Oops','Oeps'),L('Call False Balls','Roep een valse Balzak')],
   ['comeback',L('Comeback','Comeback'),L('Win a match after being last with 3 or more players left','Win een potje nadat je laatste stond met 3 of meer spelers over')],
@@ -1583,7 +1537,7 @@ function scheduleTimeout(cur){
     const id=S.players[S.turn].id, nm=S.players[S.turn].name;
     act(s=>{
       if(s.step==='throw'){ const e=doThrow(s,id,botThrow(s.hands[id])); if(e) return e; }
-      const e2=doDraw(s,id,'deck'); if(e2) return e2;
+      const hp=potatoCard(s), e2=doDraw(s,id,hp?'avail':'deck',hp); if(e2) return e2;
       addLog(s,{t:'timeout',n:nm});
     });
   }, Math.max(0,due));
@@ -1797,7 +1751,7 @@ function renderHome(){
     <details class="rules"><summary>${L('How to play','Zo speel je')}</summary><div class="howto">
       ${lang==='nl'?HOWTO_NL:HOWTO_EN}
     </div></details>
-    <details class="rules devlog"><summary>${L('What\'s new','Wat is er nieuw')} · v${VERSION}</summary><div class="howto">${devlogHTML()}</div></details>
+    <details class="rules devlog"><summary>${L('What\'s new','Wat is er nieuw')}</summary><div class="howto">${devlogHTML()}</div></details>
     <p class="version">${GAME()} · ${L('version','versie')} ${VERSION}</p>
   </div>`;
   const nameIn=$('#in-name');
@@ -1867,6 +1821,7 @@ function renderGame(){
   const selArr=[...sel].filter(c=>hand.includes(c));
   const throwOK=myTurn&&S.step==='throw'&&selArr.length&&validThrow(selArr);
   const drawStep=myTurn&&S.step==='draw';
+  const potato=drawStep?potatoCard(S):null;
 
   let status, sub='';
   if(S.phase!=='play'){ status=L('Round over','Ronde voorbij'); }
@@ -1875,6 +1830,7 @@ function renderGame(){
     status=L('Your turn — throw','Jouw beurt — gooi');
     sub = ballsOK ? L(`You hold ${hv}. Call Balls, or keep playing.`,`Je hebt ${hv}. Roep Balzak, of speel door.`) : (hv<=RULES.callMax ? L(`You hold ${hv}. You can call Balls next turn.`,`Je hebt ${hv}. Volgende beurt mag je Balzak roepen.`) : L('Tap one card, or several of the same rank.','Tik op een kaart, of op meerdere van dezelfde waarde.'));
   }
+  else if(potato){ status=L('Hot potato!','Hete aardappel!'); sub=L('You have to take the Joker.','Je moet de joker pakken.'); }
   else if(drawStep){ status=L('Now grab a card','Pak nu een kaart'); sub=L('Tap the deck or a glowing card on the table.','Tik op de stapel of op een oplichtende kaart op tafel.'); }
   else { status=S.step==='draw'?L(`${esc(cur.name)} is grabbing a card…`,`${esc(cur.name)} pakt een kaart…`):L(`${esc(cur.name)} is playing…`,`${esc(cur.name)} is aan de beurt…`); sub=''; }
 
@@ -1910,13 +1866,13 @@ function renderGame(){
       <button class="infobtn" id="b-info" aria-label="${L('Card values and table rules','Kaartwaarden en tafelregels')}" aria-expanded="${showInfo}">i</button>
       ${showInfo?`<div class="infopop" role="dialog" aria-label="${L('Card values and table rules','Kaartwaarden en tafelregels')}">${infoHTML()}</div>`:''}
       <div class="stackwrap">
-        <button class="deck ${drawStep?'':'locked'}" id="b-deck" aria-label="${L('Draw from the deck','Pak van de stapel')}" ${drawStep?'':'disabled'} style="border-radius:calc(var(--cw)*.09)">
+        <button class="deck ${drawStep&&!potato?'':'locked'}" id="b-deck" aria-label="${L('Draw from the deck','Pak van de stapel')}" ${drawStep&&!potato?'':'disabled'} style="border-radius:calc(var(--cw)*.09)">
           ${S.deck.length>2?cardHTML('back'):''}${S.deck.length>1?cardHTML('back'):''}${cardHTML('back',{cls:drawStep?'pick':''})}
         </button>
         <span class="cap">${L('Deck','Stapel')} · ${S.deck.length}</span>
       </div>
       <div class="stackwrap">
-        <div class="availrow">${S.avail.map((c,i)=>cardHTML(c,{cls:(drawStep?'pick':''),attrs:`data-take="${c}" data-card="${c}" style="--rot:${rot(i)}deg" ${drawStep?'tabindex="0" role="button" aria-label="'+L('Take ','Pak ')+label(c)+'"':''}`})).join('')}</div>
+        <div class="availrow">${S.avail.map((c,i)=>{ const can=drawStep&&(!potato||c===potato); return cardHTML(c,{cls:(can?'pick':''),attrs:`${can?`data-take="${c}" `:''}data-card="${c}" style="--rot:${rot(i)}deg" ${can?'tabindex="0" role="button" aria-label="'+L('Take ','Pak ')+label(c)+'"':''}`}); }).join('')}</div>
         <span class="cap">${S.round&&S.turnsTaken&&Object.values(S.turnsTaken).every(n=>!n)?L('Face-up card','Open kaart'):L('Last throw','Laatste worp')}</span>
       </div>
       ${S.thrown&&S.thrown.length?`<div class="mythrow"><div class="cards">${S.thrown.map(c=>cardHTML(c,{attrs:`data-card="${c}"`})).join('')}</div><span class="cap" style="font-size:10px;color:var(--ink-dim)">${myTurn?L('Your throw','Jouw worp'):L(esc(cur.name)+'’s throw','Worp van '+esc(cur.name))}</span></div>`:''}
@@ -1944,7 +1900,7 @@ function renderGame(){
   });
   $('#b-throw').onclick=()=>{ const cs=[...sel]; act(s=>doThrow(s,me,cs),{a:'throw',cards:cs}); };
   $('#b-balls').onclick=()=>act(s=>doBalls(s,me),{a:'balls'});
-  $('#b-deck').onclick=()=>{ if(drawStep) act(s=>doDraw(s,me,'deck'),{a:'draw',src:'deck'}); };
+  $('#b-deck').onclick=()=>{ if(drawStep&&!potato) act(s=>doDraw(s,me,'deck'),{a:'draw',src:'deck'}); };
   if(drawStep) app.querySelectorAll('[data-take]').forEach(el=>{
     const take=()=>act(s=>doDraw(s,me,'avail',el.dataset.take),{a:'draw',src:'avail',card:el.dataset.take});
     el.onclick=take; el.onkeydown=e=>{ if(e.key==='Enter'||e.key===' '){e.preventDefault();take();} };
@@ -1978,6 +1934,9 @@ function rulesFormHTML(r,{editable=true,online=false}={}){
     ${RULE_FIELDS.map(sel).join('')}
     ${reset('resetA',L('Score reset 1','Score-reset 1'))}
     ${reset('resetB',L('Score reset 2','Score-reset 2'))}
+    <h4 class="rsec">${L('Game modes','Spelvormen')}</h4>
+    <label for="ru-hotPotato">${L('Hot potato','Hete aardappel')}</label><label class="switch"><input type="checkbox" id="ru-hotPotato" ${r.hotPotato?'checked':''} ${dis}> <span>${r.hotPotato?L('On','Aan'):L('Off','Uit')}</span></label>
+    <p class="note rnote">${L('One Joker in the game. Whoever throws it away makes the next player take it.','Eén joker in het spel. Wie hem weggooit, laat de volgende speler hem pakken.')}</p>
   </div>`;
 }
 function readRulesForm(root,base){
@@ -1987,6 +1946,7 @@ function readRulesForm(root,base){
     if(on) r[k]={on:on.checked, from:Math.round(+f.value||0), to:Math.round(+t.value||0)}; }
   const pub=root.querySelector('#ru-pub'); if(pub) r.pub=pub.checked;
   const an=root.querySelector('#ru-autoNext'); if(an) r.autoNext=an.checked;
+  const hp=root.querySelector('#ru-hotPotato'); if(hp) r.hotPotato=hp.checked;
   delete r.resets; return r;
 }
 function wireRulesForm(root,base,onChange){
@@ -1998,7 +1958,8 @@ function rulesSummary(r){
   const R=deriveRules(r), d=deriveRules(null), diff=[];
   if(R.startHand!==d.startHand) diff.push(R.startHand+L(' cards',' kaarten'));
   if(R.decks!==d.decks) diff.push(R.decks+L(' decks',' spellen'));
-  if(R.jokers!==d.jokers) diff.push(R.jokers+L(' jokers/deck',' jokers/spel'));
+  if(R.hotPotato) diff.push(L('hot potato','hete aardappel'));
+  else if(R.jokers!==d.jokers) diff.push(R.jokers+L(' jokers/deck',' jokers/spel'));
   if(R.callMax!==d.callMax) diff.push(L('Balls at ','Balzak bij ')+R.callMax);
   if(R.falsePenalty!==d.falsePenalty) diff.push(L('false +','vals +')+R.falsePenalty);
   if(R.elimAt!==d.elimAt) diff.push(L('out at ','uit bij ')+R.elimAt);
@@ -2024,7 +1985,7 @@ function renderRulesSheet(){
 }
 function openTablesHTML(){
   if(!openTables.length) return `<p class="note">${L('No open tables right now. Create one and switch on <b>Public table</b> in its rules.','Nu geen open tafels. Maak er een en zet <b>Openbare tafel</b> aan in de regels.')}</p>`;
-  return `<ul class="plist">${openTables.map(t=>`<li><span class="av" style="background:${avColor(t.code)}">${esc(t.code[0])}</span><span style="min-width:0;flex:1">${L(`<b>${esc(t.n||'Someone')}</b>’s table`,`Tafel van <b>${esc(t.n||'iemand')}</b>`)}<br><span class="note">${t.p}/${t.m} ${L('players','spelers')} · ${esc(t.s||L('Standard rules','Standaardregels'))}</span></span><button class="btn alt" data-joinpub="${esc(t.code)}" style="font-size:15px;padding:7px 12px">${L('Join','Meedoen')}</button></li>`).join('')}</ul>`;
+  return `<ul class="plist">${openTables.map(t=>`<li><span class="av" style="background:${avColor(t.code)}">${esc(t.code[0])}</span><span style="min-width:0;flex:1">${L(`<b>${esc(t.n||L('Someone','Iemand'))}</b>’s table`,`Tafel van <b>${esc(t.n||'iemand')}</b>`)}<br><span class="note">${t.p}/${t.m} ${L('players','spelers')} · ${esc(t.s||L('Standard rules','Standaardregels'))}</span></span><button class="btn alt" data-joinpub="${esc(t.code)}" style="font-size:15px;padding:7px 12px">${L('Join','Meedoen')}</button></li>`).join('')}</ul>`;
 }
 function wireOpenTables(root){ root.querySelectorAll('[data-joinpub]').forEach(b=>b.onclick=()=>{ homeErr=''; joinRoom(b.dataset.joinpub); }); }
 function syncListing(){
@@ -2063,9 +2024,9 @@ let showInfo=false;
 function infoHTML(){
   const R=RULES, sg=v=>v<0?'−'+Math.abs(v):String(v);
   return `<h4>${L('Card values','Kaartwaarden')}</h4>
-  <dl><dt>${L('Ace','Aas')}</dt><dd>1</dd><dt>2 – 10</dt><dd>${L('face value','kaartwaarde')}</dd><dt>${L('Jack','Boer')}</dt><dd>${sg(R.jackVal)}</dd><dt>${L('Queen, King','Vrouw, Heer')}</dt><dd>10</dd>${R.jokers?`<dt>Joker</dt><dd>${sg(R.jokerVal)}</dd>`:''}</dl>
+  <dl><dt>${L('Ace','Aas')}</dt><dd>1</dd><dt>2 – 10</dt><dd>${L('face value','kaartwaarde')}</dd><dt>${L('Jack','Boer')}</dt><dd>${sg(R.jackVal)}</dd><dt>${L('Queen, King','Vrouw, Heer')}</dt><dd>10</dd>${R.jokers||R.hotPotato?`<dt>Joker</dt><dd>${sg(R.jokerVal)}</dd>`:''}</dl>
   <h4>${L('This table','Deze tafel')}</h4>
-  <dl><dt>${L('Next round','Volgende ronde')}</dt><dd>${R.autoNext?L('auto after 5s','vanzelf na 5 s'):L('host deals','host deelt')}</dd><dt>${L('Call Balls at','Balzak roepen bij')}</dt><dd>${R.callMax}${L(' or less',' of minder')}</dd><dt>${L('False Balls','Valse Balzak')}</dt><dd>+${R.falsePenalty}</dd><dt>${L('Out at','Uit bij')}</dt><dd>${R.elimAt}</dd>${Object.entries(R.resets).map(([a,b])=>`<dt>${L('Exactly','Precies')} ${a}</dt><dd>${L('back to','terug naar')} ${b}</dd>`).join('')}<dt>Bots</dt><dd>${lvlName(R.botLevel)}</dd><dt>${L('Cards each','Kaarten per speler')}</dt><dd>${R.startHand}</dd><dt>${L('Decks','Kaartspellen')}</dt><dd>${R.decks}${R.jokers?` · ${R.jokers} ${L('jokers each','jokers per spel')}`:L(' · no jokers',' · geen jokers')}</dd>${R.turnTimer?`<dt>${L('Turn timer','Beurttimer')}</dt><dd>${R.turnTimer}s</dd>`:''}</dl>`;
+  <dl><dt>${L('Next round','Volgende ronde')}</dt><dd>${R.autoNext?L('auto after 5s','vanzelf na 5 s'):L('host deals','host deelt')}</dd><dt>${L('Call Balls at','Balzak roepen bij')}</dt><dd>${R.callMax}${L(' or less',' of minder')}</dd><dt>${L('False Balls','Valse Balzak')}</dt><dd>+${R.falsePenalty}</dd><dt>${L('Out at','Uit bij')}</dt><dd>${R.elimAt}</dd>${Object.entries(R.resets).map(([a,b])=>`<dt>${L('Exactly','Precies')} ${a}</dt><dd>${L('back to','terug naar')} ${b}</dd>`).join('')}<dt>Bots</dt><dd>${lvlName(R.botLevel)}</dd><dt>${L('Cards each','Kaarten per speler')}</dt><dd>${R.startHand}</dd><dt>${L('Decks','Kaartspellen')}</dt><dd>${R.decks}${R.hotPotato?L(' · 1 joker',' · 1 joker'):R.jokers?` · ${R.jokers} ${L('jokers each','jokers per spel')}`:L(' · no jokers',' · geen jokers')}</dd>${R.hotPotato?`<dt>${L('Hot potato','Hete aardappel')}</dt><dd>${L('the next player takes the Joker','de volgende pakt de joker')}</dd>`:''}${R.turnTimer?`<dt>${L('Turn timer','Beurttimer')}</dt><dd>${R.turnTimer}s</dd>`:''}</dl>`;
 }
 function statsTableHTML(){
   const st=S.stats||{}, g=(id,k)=>(st[id]&&st[id][k])||0;
@@ -2288,7 +2249,7 @@ function renderResult(){
       <span class="who">${rankBadge(S,x.id)} ${esc(pname(S,x.id))}${x.id===r.winner?`<span class="tagn">${L('round win','rondewinst')}</span>`:''}${x.notes.map(n=>`<span class="tagn ${n==='Eliminated'?'bad':''}">${esc(n==='Eliminated'?L('Eliminated','Uitgeschakeld'):n)}</span>`).join('')}</span>
       <span class="gain">${x.gain>=0?'+':''}${x.gain}</span>
       <span class="tot">${x.after}</span>
-      <div class="cardsline">${x.hand.map((c,i)=>cardHTML(c,{cls:'small'})).join('')}<span class="hv">${x.v} ${L('in hand','in hand')}</span></div>
+      <div class="cardsline">${x.hand.map((c,i)=>cardHTML(c,{cls:'small'})).join('')}<span class="hv">${x.v} ${L('in hand','in de hand')}</span></div>
     </div>`).join('')}</div>
     ${(canNext||over)
       ? `<button class="btn" id="b-next">${over?(mode==='local'?L('New game','Nieuw spel'):L('Back to lobby','Terug naar de lobby')):L('Deal next round','Volgende ronde delen')}</button>`

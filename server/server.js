@@ -52,7 +52,7 @@ async function pwHash(pw,salt){ const k=await crypto.subtle.importKey('raw',enc.
 const NAME_RE=/^[A-Za-z0-9_-]{3,14}$/, SESSION_MS=180*864e5;
 const ACH_IDS=['a69','a69x2','a100','w0','w1','w2','w3','w4','j1','j2','j4','t3j','t4','tj','tjj','t2j','flawless',
   'win1','balls1','quick','gotcha','oops','comeback','survivor','m10','m50',
-  's5','s10','s25','out1','vsdev','beatdev','poker','all'];
+  's5','s10','s25','out1','vsdev','beatdev','poker','t4j','early','all'];
 /* poker hands to collect (best hand you hold). Jokers aren't wild: two Jokers are a pair, but they never make a straight or flush */
 const POKER=['pair','twopair','trips','straight','flush','fullhouse','quads','straightflush','royal'];
 function pokerHand(hand){
@@ -360,6 +360,7 @@ export class Table {
     const jok=by.X||0, jacks=by.J||0;
     if(Object.values(by).some(n=>n>=4)) this.achGive(id,'t4');
     if(jok>=3) this.achGive(id,'t3j');
+    if(jok>=4) this.achGive(id,'t4j');
     if(jacks>=1) this.achGive(id,'tj');
     if(jacks>=2) this.achGive(id,'t2j');
     t.jack=jacks>=1;
@@ -376,6 +377,7 @@ export class Table {
     this.meta.achRes=res.id;
     const place=placings(s), alive=s.players.filter(p=>!p.out), worst=Math.max(0,...Object.values(place));
     if(this.achOn(res.caller)){
+      if((s.turnsTaken||{})[res.caller]===1) this.achGive(res.caller,'early');
       if(res.falseB) this.achGive(res.caller,'oops');
       else if(res.winner===res.caller){ this.achGive(res.caller,'balls1'); if((s.turnsTaken||{})[res.caller]===1) this.achGive(res.caller,'quick'); }
     }
@@ -499,7 +501,7 @@ export class Table {
   timeoutStep(id){
     const s=this.s, nm=(s.players.find(p=>p.id===id)||{}).name;
     if(s.step==='throw'&&doThrow(s,id,botThrow(s.hands[id]))) return false;
-    if(doDraw(s,id,'deck')) return false;
+    const hp=potatoCard(s); if(doDraw(s,id,hp?'avail':'deck',hp)) return false;
     addLog(s,{t:'timeout',n:nm}); return true;
   }
   async alarm(){
@@ -553,7 +555,7 @@ function sanitizeRules(r){
   num('elimAt',20,500); num('jokerVal',-10,60); num('jackVal',-10,20); num('turnTimer',0,120);
   if(['relaxed','normal','fast'].includes(r.speed)) x.speed=r.speed;
   if(BOT_LEVELS.includes(r.botLevel)) x.botLevel=r.botLevel;
-  x.autoNext=r.autoNext!==false; x.pub=!!r.pub;
+  x.autoNext=r.autoNext!==false; x.pub=!!r.pub; x.hotPotato=!!r.hotPotato;
   for(const k of ['resetA','resetB']){ const v=r[k]; if(v&&typeof v==='object'){ const f=Number(v.from), t=Number(v.to); if(Number.isFinite(f)&&Number.isFinite(t)) x[k]={on:!!v.on,from:Math.round(f),to:Math.round(t)}; } }
   return x;
 }
