@@ -183,7 +183,7 @@ export class Lobby {
     for(const k of Object.keys(list)) if(now-(list[k].at||0)>2*3600e3) delete list[k];
     if(req.method==='POST'){
       const b=await req.json();
-      if(b&&/^[A-Z]{4}$/.test(b.code)){ if(b.drop) delete list[b.code]; else list[b.code]={n:clean(b.info.n,14),p:b.info.p|0,m:b.info.m|0,s:clean(b.info.s,80),at:now}; }
+      if(b&&/^[A-Z]{4}$/.test(b.code)){ if(b.drop) delete list[b.code]; else list[b.code]={n:clean(b.info.n,14),p:b.info.p|0,m:b.info.m|0,s:clean(b.info.s,80),k:b.info.k==='s'?'s':'c',at:now}; }
       await this.ctx.storage.put('list',list);
       return new Response('ok');
     }
@@ -250,8 +250,10 @@ export class Table {
     if(m.create){
       const live=this.s&&this.humans().some(p=>this.online(p.id,ws));
       if(live) return this.err(ws,'That code is taken.','exists');
-      const rules=sanitizeRules(m.rules);
-      this.s={v:1,phase:'lobby',host:id,code,players:[{id,name,score:0,out:false}],round:0,dealer:0,log:[],v_round:0,created:Date.now(),rules,stats:{},history:[]};
+      /* Standard tables count for stats and achievements and always play the standard card rules */
+      const tmode=m.mode==='standard'?'standard':'custom';
+      const rules=tmode==='standard'?standardize(sanitizeRules(m.rules)):sanitizeRules(m.rules);
+      this.s={v:1,phase:'lobby',host:id,code,mode:tmode,players:[{id,name,score:0,out:false}],round:0,dealer:0,log:[],v_round:0,created:Date.now(),rules,stats:{},history:[]};
       this.sec={}; this.chat=[]; this.meta.away={}; this.meta.listed=null; this.meta.sum=clean(m.sum,80);
     }
     const s=this.s;
@@ -301,7 +303,7 @@ export class Table {
         else if(notReady(s).length) err=L('Waiting for '+notReady(s).map(p=>p.name).join(', ')+' to ready up.','Wachten tot '+notReady(s).map(p=>p.name).join(', ')+' klaar is.');
         else { const cn=cardsNeeded(s.rules,s.players.length); if(cn.need>cn.have) err=L('Not enough cards for this many players.','Niet genoeg kaarten voor zoveel spelers.'); else { s.stats={}; s.history=[]; s.dealer=Math.floor(Math.random()*s.players.length); s.v_round=1; startRound(s);
           /* win/loss only counts on Standard rules with at least 2 people at the table */
-          s.ranked=rankedRules(s.rules)&&this.humans().length>=2; this.meta.recorded=null; this.meta.achT={}; this.meta.achRes=null; this.meta.pokerSeen={}; } }
+          s.ranked=this.isStd()&&this.humans().length>=2; this.meta.recorded=null; this.meta.achT={}; this.meta.achRes=null; this.meta.pokerSeen={}; } }
         break; }
       case 'addBot': {
         if(!host||s.phase!=='lobby') return;
@@ -316,7 +318,7 @@ export class Table {
       case 'botLvl': { if(!host||s.phase!=='lobby'||!BOT_LEVELS.includes(m.lvl)) return; const b=s.players.find(p=>p.id===m.id&&p.bot); if(b) b.lvl=m.lvl; break; }
       case 'rules': {
         if(!host||s.phase!=='lobby') return;
-        const r=sanitizeRules(m.rules);
+        const r=s.mode==='standard'?standardize(sanitizeRules(m.rules)):sanitizeRules(m.rules);
         if(s.players.length>deriveRules(r).maxPlayers) err=L('There are already more players than that.','Er zitten al meer spelers aan tafel.');
         else { s.rules=r; this.meta.sum=clean(m.sum,80); s.players.forEach(p=>{ if(p.id!==s.host) p.ready=false; }); }
         break; }
@@ -341,11 +343,12 @@ export class Table {
   /* match over on Standard rules: 1st place is a win, everyone else a loss (leaving counts as a loss) */
   acctStub(){ return this.env.ACCOUNTS.get(this.env.ACCOUNTS.idFromName('accounts')); }
   /* ---- achievements: Standard rules on a server table, players with an account, only their own moves ---- */
-  achOn(id){ const s=this.s; return !!(s&&rankedRules(s.rules)&&(this.meta.acct||{})[id]); }
+  isStd(){ const s=this.s; return !!(s&&s.mode==='standard'&&rankedRules(s.rules)); }
+  achOn(id){ return !!(this.isStd()&&(this.meta.acct||{})[id]); }
   achT(id){ const s=this.s, all=this.meta.achT=this.meta.achT||{}; const t=all[id]=all[id]||{h69:0,lost:false}; if(t.round!==s.round){ t.round=s.round; t.jok=0; t.jack=false; } return t; }
   achGive(id,a){ if(!this.achOn(id)) return; (this.pend=this.pend||{})[id]=this.pend[id]||new Set(); this.pend[id].add(a); }
   achPoker(){
-    const s=this.s; if(!s||!s.hands||!rankedRules(s.rules)) return;
+    const s=this.s; if(!s||!s.hands||!this.isStd()) return;
     const seen=this.meta.pokerSeen=this.meta.pokerSeen||{};
     for(const [pid,h] of Object.entries(s.hands)){
       if(!this.achOn(pid)) continue;
@@ -373,7 +376,7 @@ export class Table {
   }
   achRound(){
     const s=this.s, res=s&&s.result;
-    if(!res||this.meta.achRes===res.id||!rankedRules(s.rules)) return;
+    if(!res||this.meta.achRes===res.id||!this.isStd()) return;
     this.meta.achRes=res.id;
     const place=placings(s), alive=s.players.filter(p=>!p.out), worst=Math.max(0,...Object.values(place));
     if(this.achOn(res.caller)){
@@ -540,7 +543,7 @@ export class Table {
     const R=deriveRules(s.rules);
     if(s.phase==='lobby'&&R.pub){
       const host=s.players.find(p=>p.id===s.host);
-      const info={n:host?host.name:'Host',p:s.players.length,m:R.maxPlayers,s:this.meta.sum||''};
+      const info={n:host?host.name:'Host',p:s.players.length,m:R.maxPlayers,s:this.meta.sum||'',k:s.mode==='standard'?'s':'c'};
       const sig=JSON.stringify(info);
       if(sig!==this.meta.listed){ this.meta.listed=sig; await this.save(); await this.lobbyStub().fetch('https://lobby/',{method:'POST',body:JSON.stringify({code:s.code,info})}); }
     } else if(this.meta.listed){ await this.unlist(); }

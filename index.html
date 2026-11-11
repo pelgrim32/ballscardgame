@@ -67,6 +67,9 @@ input.txt::placeholder{color:rgba(255,255,255,.35)}
 .rgrid select:disabled,.rgrid input:disabled{opacity:.7}
 .rgrid .rsec{grid-column:1/-1;margin:10px 0 0;font-size:17px}
 .rgrid .rnote{grid-column:1/-1;margin:-4px 0 0}
+.modebtn{display:flex;flex-direction:column;align-items:flex-start;gap:3px;text-align:left;padding:12px 14px}
+.modebtn b{font-size:19px}.modebtn span{font-size:14px;font-weight:400;line-height:1.3;opacity:.9}
+.tablekind{margin:0;font-weight:700;color:var(--ink-dim)}.tablekind.std{color:var(--gold)}
 .rgrid input[type=checkbox]{accent-color:var(--gold);width:18px;height:18px;vertical-align:-3px}
 .rgrid .switch{display:flex;align-items:center;gap:6px;justify-self:end;font-size:13px;color:var(--ink-dim)}
 .rreset-n{display:flex;align-items:center;gap:4px;font-size:13px;color:var(--ink-dim);justify-self:end}
@@ -652,8 +655,10 @@ html.compact:not(.skin-classic) .screen{padding-block:6px}
 let lang=(()=>{ try{ const v=localStorage.getItem('balls.lang'); if(v==='nl'||v==='en') return v; }catch(e){} return /^nl\b/i.test(navigator.language||'')?'nl':'en'; })();
 const L=(en,nl)=>lang==='nl'?nl:en;
 const GAME=()=>L('Balls!','Balzakken');
-const VERSION='1.7.0';
+const VERSION='1.8.0';
 const DEVLOG=[
+  {v:'1.8.0',d:'11-11-2026',en:['When you create a table you choose Standard or Custom','Standard tables count for win/loss and achievements; Custom tables let you set every rule'],
+                            nl:['Bij een nieuwe tafel kies je Standaard of Eigen regels','Standaardtafels tellen mee voor winst/verlies en prestaties; bij eigen regels stel je alles zelf in']},
   {v:'1.7.0',d:'11-11-2026',en:['Online play is back on the game server, with accounts, win/loss and achievements','Win streaks','Collect all 9 poker hands','10 new achievements, including streaks, playing giel and Completionist','Game mode Hot potato: one Joker that the next player has to take','Fits better in smaller and shorter windows','Dutch translation fixes'],
                             nl:['Online spelen draait weer op de spelserver, met accounts, winst/verlies en prestaties','Winstreeks','Verzamel alle 9 pokerhanden','10 nieuwe prestaties, met reeksen, spelen tegen giel en Alles verzameld','Spelvorm Hete aardappel: één joker die de volgende speler moet pakken','Past beter in kleinere en lagere vensters','Verbeteringen in de Nederlandse vertaling']},
   {v:'1.6.2',d:'11-11-2026',en:['Online play is back on the old system for now. Accounts, win/loss and achievements live on the beta page'],
@@ -700,6 +705,9 @@ function useRules(s){ RULES=deriveRules(s&&s.rules); }
 /* win/loss only counts when the card rules are the standard ones (speed, timer and bots don't matter) */
 function rankedRules(r){ const R=deriveRules(r), d=deriveRules(null); return !R.hotPotato && ['startHand','decks','jokers','callMax','falsePenalty','elimAt','jokerVal','jackVal'].every(k=>R[k]===d[k]) && JSON.stringify(R.resets)===JSON.stringify(d.resets); }
 function cardsNeeded(r,n){ const R=deriveRules(r); return {need:n*R.startHand+1, have:R.decks*52+(R.hotPotato?1:R.decks*R.jokers)}; }
+/* the rules that change how the cards play; a Standard table always uses the defaults for these */
+const CARD_RULES=['startHand','decks','jokers','callMax','falsePenalty','elimAt','jokerVal','jackVal','resetA','resetB','hotPotato'];
+function standardize(r){ const x={...(r||{})}; for(const k of CARD_RULES) x[k]=JSON.parse(JSON.stringify(DEFAULT_RULES[k])); return x; }
 /* Hot potato: one Joker in the game, and whoever throws it makes the next player take it */
 const potatoCard = s => RULES.hotPotato ? (s.avail||[]).find(c=>rank(c)==='X') : null;
 
@@ -1159,7 +1167,7 @@ applySkin();
 let hc=false;
 function applyHC(){ document.documentElement.classList.toggle('hc',hc && skin!=='uno'); }
 applyHC();
-let showSettings=false, showRules=false;
+let showSettings=false, showRules=false, showCreate=false;
 function localRules(){ try{ const r={...DEFAULT_RULES, ...(JSON.parse(load('balls.rules')||'{}')), pub:false};
   if(r.resetB&&r.resetB.from===69&&r.resetB.to===70) r.resetB={...r.resetB,to:0};
   return r; }catch(e){ return {...DEFAULT_RULES}; } }
@@ -1323,7 +1331,7 @@ function serverSubscribe(code){
   roomCode=code; mode='online'; ref=null; S=null; firstSnap=true; lastSplash=null; seenHand.clear(); srvChat=[];
   store('balls.room',code); startChat(code); render();
 }
-function serverOpen(code,{create=false}={}){
+function serverOpen(code,{create=false,tableMode='custom'}={}){
   return new Promise(resolve=>{
     let first=true;
     const done=r=>{ if(first){ first=false; resolve(r); return true; } return false; };
@@ -1335,7 +1343,7 @@ function serverOpen(code,{create=false}={}){
         sockTries=0;
         const hello={t:'hello',id:me,secret:mySecret,name:(acct?acct.name:myName).trim().slice(0,14),lang};
         if(acctToken) hello.token=acctToken;
-        if(create&&first){ const r=localRules(); Object.assign(hello,{create:true,rules:r,sum:rulesSum(r)}); }
+        if(create&&first){ const std=tableMode==='standard', r=std?standardize(localRules()):localRules(); Object.assign(hello,{create:true,mode:std?'standard':'custom',rules:r,sum:std?L('Standard table','Standaardtafel'):rulesSum(r)}); }
         ws.send(JSON.stringify(hello));
       };
       ws.onmessage=e=>{
@@ -1577,11 +1585,25 @@ function subscribe(code){
     afterState(pv); firstSnap=false;
   }, err=>{ clearTimeout(loadTimer); leaveTable(L('Lost the connection to the table. Rejoin with the code.','Verbinding met de tafel verbroken. Doe opnieuw mee met de code.')); });
 }
-async function createRoom(){
+/* Standard or Custom: Standard counts for stats and achievements, Custom lets you set every rule */
+function renderCreateSheet(){
+  layer.innerHTML=`<div class="overlay" id="ov"><div class="sheet" role="dialog" aria-label="${L('Create table','Tafel maken')}">
+    <h3>${L('What kind of table?','Wat voor tafel?')}</h3>
+    <button class="btn modebtn" id="c-std"><b>${L('Standard','Standaard')}</b><span>${L('Standard rules. Counts for your stats and achievements.','Standaardregels. Telt mee voor je statistieken en prestaties.')}</span></button>
+    <button class="btn ghost modebtn" id="c-cus"><b>${L('Custom','Eigen regels')}</b><span>${L('Set your own rules and game modes. Doesn\'t count for stats or achievements.','Stel je eigen regels en spelvormen in. Telt niet mee voor statistieken of prestaties.')}</span></button>
+    ${acct?'':`<p class="note">${L('Log in on the home screen first if you want this table to count for you.','Log eerst in op het startscherm als je wilt dat deze tafel voor jou meetelt.')}</p>`}
+    <div class="row"><button class="btn ghost grow" id="c-close">${L('Cancel','Annuleren')}</button></div>
+  </div></div>`;
+  const close=()=>{ showCreate=false; render(); };
+  $('#c-close').onclick=close; $('#ov').onclick=e=>{ if(e.target.id==='ov') close(); };
+  $('#c-std').onclick=()=>{ showCreate=false; createRoom('standard'); };
+  $('#c-cus').onclick=()=>{ showCreate=false; createRoom('custom'); };
+}
+async function createRoom(tableMode='custom'){
   me=onlineId;
-  if(!myName.trim()){ homeErr=L('Enter your name first.','Vul eerst je naam in.'); render(); return; }
+  if(!myName.trim()&&!acct){ homeErr=L('Enter your name first.','Vul eerst je naam in.'); render(); return; }
   if(serverMode){
-    for(let i=0;i<5;i++){ const code=genCode(); serverSubscribe(code); const r=await serverOpen(code,{create:true}); if(r.ok) return; if(r.code!=='exists'){ leaveTable(r.msg||L('Could not create the table. Try again.','De tafel kon niet worden gemaakt. Probeer het opnieuw.')); return; } }
+    for(let i=0;i<5;i++){ const code=genCode(); serverSubscribe(code); const r=await serverOpen(code,{create:true,tableMode}); if(r.ok) return; if(r.code!=='exists'){ leaveTable(r.msg||L('Could not create the table. Try again.','De tafel kon niet worden gemaakt. Probeer het opnieuw.')); return; } }
     leaveTable(L('Could not create the table. Try again.','De tafel kon niet worden gemaakt. Probeer het opnieuw.')); return;
   }
   let code=genCode();
@@ -1647,7 +1669,7 @@ function renderInner(){
   if(!mode||!S||S.phase==='lobby') clearFit();
   layer.innerHTML='';
   useRules(S);
-  if(!mode){ renderHome(); if(showRules) renderRulesSheet(); else if(showAcct) renderAcctSheet(); return; }
+  if(!mode){ renderHome(); if(showRules) renderRulesSheet(); else if(showAcct) renderAcctSheet(); else if(showCreate) renderCreateSheet(); return; }
   if(mode==='online' && !S) { app.innerHTML=`<div class="screen home"><div class="logo ${lang}">${L('BALLS!','BALZAKKEN!')}</div><p class="tag">${L('Sitting down at table','Aanschuiven bij tafel')} ${esc(roomCode)}…</p><button class="btn ghost" id="b-leave">${L('Back','Terug')}</button></div>`; $('#b-leave').onclick=()=>leaveTable(); return; }
   if(S.phase==='lobby') return renderLobby();
   renderGame();
@@ -1763,7 +1785,7 @@ function renderHome(){
   wireOpenTables(app);
   wireSettings(app);
   if(onlineOK){
-    $('#b-create').onclick=()=>{ homeErr=''; createRoom(); };
+    $('#b-create').onclick=()=>{ homeErr=''; if(serverMode){ showCreate=true; render(); } else createRoom(); };
     $('#b-join').onclick=()=>{ homeErr=''; joinRoom($('#in-code').value); };
     $('#in-code').onkeydown=e=>{ if(e.key==='Enter'){ homeErr=''; joinRoom(e.target.value);} };
   }
@@ -1788,16 +1810,18 @@ function renderLobby(){
     </div>
     <div class="panel">
       <h2>${L('Table rules','Tafelregels')}</h2>
-      ${serverMode?`<p class="note ranked ${rankedRules(S.rules)&&S.players.filter(p=>!p.bot).length>=2?'on':''}">${rankedRules(S.rules)?(S.players.filter(p=>!p.bot).length>=2?L('Counts for win/loss and achievements (players with an account).','Telt mee voor winst/verlies en prestaties (spelers met een account).'):L('Achievements count. Win/loss counts once 2 or more people are at the table.','Prestaties tellen mee. Winst/verlies telt mee zodra er 2 of meer mensen aan tafel zitten.')):L('Custom rules: this match doesn\'t count for win/loss or achievements.','Eigen regels: dit potje telt niet mee voor winst/verlies of prestaties.')}</p>`:''}
+      ${serverMode?(()=>{ const std=S.mode==='standard', two=S.players.filter(p=>!p.bot).length>=2;
+        return `<p class="tablekind ${std?'std':''}">${std?L('Standard table','Standaardtafel'):L('Custom table','Tafel met eigen regels')}</p>
+        <p class="note ranked ${std&&two?'on':''}">${std?(two?L('Counts for win/loss and achievements (players with an account).','Telt mee voor winst/verlies en prestaties (spelers met een account).'):L('Achievements count. Win/loss counts once 2 or more people are at the table.','Prestaties tellen mee. Winst/verlies telt mee zodra er 2 of meer mensen aan tafel zitten.')):L('Doesn\'t count for win/loss or achievements.','Telt niet mee voor winst/verlies of prestaties.')}</p>`; })():''}
       <p class="note">${isHost?L('Changing a rule clears everyone\'s Ready.','Een regel aanpassen zet iedereen weer op niet klaar.'):L('Only the host can change these.','Alleen de host kan deze aanpassen.')}</p>
-      ${rulesFormHTML(deriveRules(S.rules),{editable:isHost,online:true})}
+      ${rulesFormHTML(deriveRules(S.rules),{editable:isHost,online:true,standard:serverMode&&S.mode==='standard'})}
     </div>
     <div class="row lobby-actions"><button class="btn alt" id="b-chat">Chat<span class="chatbadge">${chatUnread||''}</span></button><button class="btn ghost" id="b-leave">${L('Leave table','Tafel verlaten')}</button></div>
   </div>`;
   $('#b-leave').onclick=()=>leaveTable();
   $('#b-chat').onclick=openChat;
   const rb=$('#b-ready'); if(rb) rb.onclick=()=>{ const want=!meReady; rb.disabled=true; if(serverMode){ act(null,{a:'ready',on:want}); return; } roomTxn(d=>{ if(d.phase!=='lobby') return false; const p=d.players.find(x=>x.id===me); if(!p) return false; p.ready=want; }).catch(()=>{ toast(L('That did not reach the table. Try again.','Dat kwam niet aan bij de tafel. Probeer het opnieuw.')); rb.disabled=false; }); };
-  if(isHost) wireRulesForm(app, deriveRules(S.rules), r=>{ saveLocalRules(r); act(s=>{ if(s.players.length>r.maxPlayers) return L('There are already more players than that.','Er zitten al meer spelers aan tafel.'); s.rules=r; s.players.forEach(p=>{ if(p.id!==s.host) p.ready=false; }); },{a:'rules',rules:r,sum:rulesSum(r)}); });
+  if(isHost) wireRulesForm(app, deriveRules(S.rules), r=>{ if(S.mode!=='standard') saveLocalRules(r); act(s=>{ if(s.players.length>r.maxPlayers) return L('There are already more players than that.','Er zitten al meer spelers aan tafel.'); s.rules=r; s.players.forEach(p=>{ if(p.id!==s.host) p.ready=false; }); },{a:'rules',rules:r,sum:rulesSum(r)}); });
   if(isHost){
     $('#b-bot').onclick=()=>act(s=>{ const used=new Set(s.players.map(p=>p.name)); const n=BOT_NAMES.find(x=>!used.has(x))||'Bot'; s.players.push({id:'b'+newId(),name:n,score:0,out:false,bot:true,lvl:localRules().botLevel||'normal'}); },{a:'addBot',lvl:localRules().botLevel||'normal'});
     $('#b-start').onclick=()=>act(s=>{ if(s.players.length<2) return L('You need at least 2 players.','Je hebt minstens 2 spelers nodig.'); const w=notReady(s); if(w.length) return L('Waiting for '+w.map(p=>p.name).join(', ')+' to ready up.','Wachten tot '+w.map(p=>p.name).join(', ')+' klaar is.'); const cn=cardsNeeded(s.rules,s.players.length); if(cn.need>cn.have) return L(`Not enough cards: ${s.players.length} players need ${cn.need}, the deck has ${cn.have}. Add a deck or deal fewer cards.`,`Niet genoeg kaarten: ${s.players.length} spelers hebben er ${cn.need} nodig, het spel heeft er ${cn.have}. Voeg een kaartspel toe of deel minder kaarten.`); s.dealer=Math.floor(Math.random()*s.players.length); s.v_round=1; startRound(s); },{a:'start'});
@@ -1920,7 +1944,7 @@ const RULE_FIELDS=[
   ['speed',()=>L('Game speed','Spelsnelheid'),['relaxed','normal','fast'],null,v=>({relaxed:L('Relaxed','Rustig'),normal:L('Normal','Normaal'),fast:L('Fast','Snel')})[v]],
   ['turnTimer',()=>L('Turn timer','Beurttimer'),[0,15,30,60],null,v=>v?v+L(' seconds',' seconden'):L('Off','Uit')],
 ];
-function rulesFormHTML(r,{editable=true,online=false}={}){
+function rulesFormHTML(r,{editable=true,online=false,standard=false}={}){
   const dis=editable?'':'disabled';
   const sel=([k,lab,opts,only,fmt])=>{ if(only==='online'&&!online) return ''; if(only==='local'&&online) return '';
     const list=opts.includes(r[k])?opts:[...opts,r[k]];
@@ -1930,12 +1954,13 @@ function rulesFormHTML(r,{editable=true,online=false}={}){
   return `<div class="rgrid rules-form">
     <label for="ru-autoNext">${L('Next round','Volgende ronde')}</label><label class="switch"><input type="checkbox" id="ru-autoNext" ${r.autoNext?'checked':''} ${dis}> <span>${r.autoNext?L('Starts by itself after 5s','Start vanzelf na 5 s'):L('Host deals','Host deelt')}</span></label>
     ${online?`<label for="ru-pub">${L('Public table','Openbare tafel')}</label><label class="switch"><input type="checkbox" id="ru-pub" ${r.pub?'checked':''} ${dis}> <span>${r.pub?L('Listed in Open tables','Zichtbaar bij Open tafels'):L('Code only','Alleen met code')}</span></label>`:''}
-    ${RULE_FIELDS.map(sel).join('')}
+    ${RULE_FIELDS.filter(f=>!standard||!CARD_RULES.includes(f[0])).map(sel).join('')}
+    ${standard?`<p class="note rnote">${L('Card rules are standard at this table: 5 cards, 1 deck with 4 Jokers, Balls at 5 or less, +25 for false Balls, out at 101, 69 → 0 and 100 → 70.','Aan deze tafel gelden de standaard kaartregels: 5 kaarten, 1 spel met 4 jokers, Balzak bij 5 of minder, +25 bij valse Balzak, uit bij 101, 69 → 0 en 100 → 70.')}</p>`:`
     ${reset('resetA',L('Score reset 1','Score-reset 1'))}
     ${reset('resetB',L('Score reset 2','Score-reset 2'))}
     <h4 class="rsec">${L('Game modes','Spelvormen')}</h4>
     <label for="ru-hotPotato">${L('Hot potato','Hete aardappel')}</label><label class="switch"><input type="checkbox" id="ru-hotPotato" ${r.hotPotato?'checked':''} ${dis}> <span>${r.hotPotato?L('On','Aan'):L('Off','Uit')}</span></label>
-    <p class="note rnote">${L('One Joker in the game. Whoever throws it away makes the next player take it.','Eén joker in het spel. Wie hem weggooit, laat de volgende speler hem pakken.')}</p>
+    <p class="note rnote">${L('One Joker in the game. Whoever throws it away makes the next player take it.','Eén joker in het spel. Wie hem weggooit, laat de volgende speler hem pakken.')}</p>`}
   </div>`;
 }
 function readRulesForm(root,base){
@@ -1984,7 +2009,7 @@ function renderRulesSheet(){
 }
 function openTablesHTML(){
   if(!openTables.length) return `<p class="note">${L('No open tables right now. Create one and switch on <b>Public table</b> in its rules.','Nu geen open tafels. Maak er een en zet <b>Openbare tafel</b> aan in de regels.')}</p>`;
-  return `<ul class="plist">${openTables.map(t=>`<li><span class="av" style="background:${avColor(t.code)}">${esc(t.code[0])}</span><span style="min-width:0;flex:1">${L(`<b>${esc(t.n||L('Someone','Iemand'))}</b>’s table`,`Tafel van <b>${esc(t.n||'iemand')}</b>`)}<br><span class="note">${t.p}/${t.m} ${L('players','spelers')} · ${esc(t.s||L('Standard rules','Standaardregels'))}</span></span><button class="btn alt" data-joinpub="${esc(t.code)}" style="font-size:15px;padding:7px 12px">${L('Join','Meedoen')}</button></li>`).join('')}</ul>`;
+  return `<ul class="plist">${openTables.map(t=>`<li><span class="av" style="background:${avColor(t.code)}">${esc(t.code[0])}</span><span style="min-width:0;flex:1">${L(`<b>${esc(t.n||L('Someone','Iemand'))}</b>’s table`,`Tafel van <b>${esc(t.n||'iemand')}</b>`)}<br><span class="note">${t.p}/${t.m} ${L('players','spelers')} · ${t.k==='s'?`<b>${L('Standard','Standaard')}</b>`:esc(t.s||L('Custom','Eigen regels'))}</span></span><button class="btn alt" data-joinpub="${esc(t.code)}" style="font-size:15px;padding:7px 12px">${L('Join','Meedoen')}</button></li>`).join('')}</ul>`;
 }
 function wireOpenTables(root){ root.querySelectorAll('[data-joinpub]').forEach(b=>b.onclick=()=>{ homeErr=''; joinRoom(b.dataset.joinpub); }); }
 function syncListing(){
