@@ -376,8 +376,8 @@ export class Table {
     const fail=msg=>{ this.err(ws,msg); return true; };
     let err=null;
     switch(m.a){
-      case 'throw': { if(!Array.isArray(m.cards)) return; const cs=m.cards.map(String).slice(0,12); err=doThrow(s,id,cs); if(!err) this.achThrow(id,cs); break; }
-      case 'draw': { err=doDraw(s,id,m.src==='avail'?'avail':'deck',String(m.card||'')); if(!err){ const h=s.hands[id]; this.achDraw(id,h[h.length-1]); } break; }
+      case 'throw': { if(!Array.isArray(m.cards)) return; const cs=m.cards.map(String).slice(0,12); err=doThrow(s,id,cs); if(!err){ movedSelf(s,id); this.achThrow(id,cs); } break; }
+      case 'draw': { err=doDraw(s,id,m.src==='avail'?'avail':'deck',String(m.card||'')); if(!err){ movedSelf(s,id); const h=s.hands[id]; this.achDraw(id,h[h.length-1]); } break; }
       case 'balls': err=doBalls(s,id); break;
       case 'start': {
         if(!host||s.phase!=='lobby') return;
@@ -559,7 +559,8 @@ export class Table {
     const hp=s.players.find(p=>p.id===s.host);
     if(s.phase!=='lobby'&&hp&&!hp.bot&&!this.online(hp.id)&&this.meta.away[hp.id]&&humans.some(p=>p.id!==hp.id&&this.online(p.id)))
       out.push({at:this.meta.away[hp.id]+AWAY_PLAY_MS,run:()=>{ const was=s.host; this.passHost(); return s.host!==was; }});
-    if(s.phase==='play'){
+    /* nobody connected: bots and timers wait (saves requests); they carry on when someone comes back */
+    if(s.phase==='play'&&anyOnline){
       const cur=s.players[s.turn];
       if(cur){
         const start=s.startAt||0, last=s.lastActAt||0, sp=(SPEED[R.speed]||SPEED.normal).bot;
@@ -583,11 +584,16 @@ export class Table {
     }
     const [src,card]=botDraw(s,id,lvl); return !doDraw(s,id,src,card);
   }
+  /* out of time: Hard-bot move; the third timeout in a row removes the player (see timeoutMove in the engine) */
   timeoutStep(id){
-    const s=this.s, nm=(s.players.find(p=>p.id===id)||{}).name;
-    if(s.step==='throw'&&doThrow(s,id,botThrow(s.hands[id]))) return false;
-    const hp=potatoCard(s); if(doDraw(s,id,hp?'avail':'deck',hp)) return false;
-    addLog(s,{t:'timeout',n:nm}); return true;
+    const s=this.s;
+    if(timeoutMove(s,id)) return false;
+    const p=s.players.find(x=>x.id===id);
+    if(p&&p.kicked){
+      for(const w of this.sockets()) if(this.att(w).id===id){ this.sendTo(w,{t:'gone',msg:L('You were removed from the match for not playing three turns in a row.','Je bent uit het potje gehaald omdat je drie beurten niet speelde.')}); try{ w.close(1000,'removed'); }catch(e){} }
+      if(s.host===id) this.passHost();
+    }
+    return true;
   }
   async alarm(){
     await this.load(); if(!this.s) return;

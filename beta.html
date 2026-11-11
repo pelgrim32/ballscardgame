@@ -664,8 +664,10 @@ html.compact:not(.skin-classic) .screen{padding-block:6px}
 let lang=(()=>{ try{ const v=localStorage.getItem('balls.lang'); if(v==='nl'||v==='en') return v; }catch(e){} return /^nl\b/i.test(navigator.language||'')?'nl':'en'; })();
 const L=(en,nl)=>lang==='nl'?nl:en;
 const GAME=()=>L('Balls!','Balzakken');
-const VERSION='1.8.1-beta';
+const VERSION='1.8.2-beta';
 const DEVLOG=[
+  {v:'1.8.2-beta',d:'11-11-2026',en:['Turn timer: when your time runs out, the game plays your turn as a Hard bot (it never calls Balls)','Three timeouts in a row and you are removed from the match; your cards go to the discard pile'],
+                            nl:['Beurttimer: als je tijd op is, speelt het spel je beurt als een moeilijke bot (die nooit Balzak roept)','Drie keer achter elkaar te laat en je wordt uit het potje gehaald; je kaarten gaan naar de aflegstapel']},
   {v:'1.8.1-beta',d:'11-11-2026',en:['Steadier connection: a dropped connection at a table is noticed and restored by itself'],
                             nl:['Stabielere verbinding: als je verbinding aan tafel wegvalt, merkt het spel dat en herstelt het hem zelf']},
   {v:'1.8.0',d:'11-11-2026',en:['When you create a table you choose Standard or Custom','Standard tables count for win/loss and achievements; Custom tables let you set every rule'],
@@ -743,12 +745,42 @@ function fmtLog(e){
       return {who:e.n,rest:L(` threw ${th} · ${e.src==='deck'?'drew from the deck':'took '+label(e.g)+' from the last throw'}`,` gooide ${th} · ${e.src==='deck'?'pakte van de stapel':'pakte '+label(e.g)+' van de laatste worp'}`)}; }
     case 'shuffle': return {who:'',rest:L('Deck ran out, the table was reshuffled','Stapel op, er is opnieuw geschud')};
     case 'balls': return {who:e.n,rest:e.f?L(' called false Balls',' riep valse Balzak'):L(' called Balls and won the round',' riep Balzak en won de ronde')};
-    case 'timeout': return {who:e.n,rest:L(' ran out of time',' had geen tijd meer')};
+    case 'timeout': return {who:e.n,rest:e.k?L(` ran out of time (${e.k}/${TIMEOUT_KICK})`,` had geen tijd meer (${e.k}/${TIMEOUT_KICK})`):L(' ran out of time',' had geen tijd meer')};
+    case 'kicked': return {who:e.n,rest:L(' had to leave after three missed turns. The cards went to the discard pile.',' moest het potje verlaten na drie gemiste beurten. De kaarten gingen naar de aflegstapel.')};
   }
   return {who:'',rest:''};
 }
 const logText=e=>{ const f=fmtLog(e); return f.who+f.rest; };
 function addLog(s,m){ s.log=[...(s.log||[]),m].slice(-4); }
+/* ---- out of time: play the turn as a Hard bot (never calls Balls). After 3 timeouts in a row the player is
+   removed from the match and the cards in their hand go to the discard pile. ---- */
+const TIMEOUT_KICK=3;
+function timeoutMove(s,id){
+  const p=s.players.find(x=>x.id===id); if(!p||!isTurn(s,id)) return 'not your turn';
+  if(s.step==='throw'){ let e=doThrow(s,id,botThrowFor(s,id,'hard')); if(e) e=doThrow(s,id,botThrow(s.hands[id])); if(e) return e; }
+  if(s.step==='draw'&&isTurn(s,id)){ const [src,c]=botDraw(s,id,'hard'); let e=doDraw(s,id,src,c); if(e){ const hp=potatoCard(s); e=doDraw(s,id,hp?'avail':'deck',hp); } if(e) return e; }
+  s.timeouts={...(s.timeouts||{})}; s.timeouts[id]=(s.timeouts[id]||0)+1;
+  addLog(s,{t:'timeout',n:p.name,k:s.timeouts[id]});
+  if(s.timeouts[id]>=TIMEOUT_KICK) kickPlayer(s,id);
+  return null;
+}
+/* a move of your own resets the count */
+function movedSelf(s,id){ if(s.timeouts&&s.timeouts[id]){ s.timeouts={...s.timeouts}; delete s.timeouts[id]; } }
+function kickPlayer(s,id){
+  const i=s.players.findIndex(x=>x.id===id), p=s.players[i]; if(!p||p.out) return;
+  const h=s.hands[id]||[]; s.pile=[...(s.pile||[]),...h]; s.hands[id]=[];
+  p.out=true; p.kicked=true; p.left=true;
+  addLog(s,{t:'kicked',n:p.name,c:h.length});
+  if(s.phase!=='play') return;
+  const alive=aliveList(s);
+  if(alive.length<=1||!alive.some(x=>!x.bot)){
+    /* one player left, or only bots: the match ends and the best placed player wins it */
+    const best=alive.slice().sort((a,b)=>a.score-b.score)[0];
+    s.result={id:Math.random().toString(36).slice(2), round:s.round, caller:null, cv:null, falseB:false, winner:best?best.id:null, coin:false, beaters:[], rows:[], forfeit:id};
+    s.phase='over'; s.overAt=Date.now(); return;
+  }
+  if(s.turn===i){ s.step='throw'; s.turn=nextAlive(s,i); s.turnAt=Date.now(); }
+}
 function placings(s){
   const alive=s.players.filter(p=>!p.out), m={};
   for(const p of alive) m[p.id]=1+alive.filter(q=>q.score<p.score).length;
@@ -1452,6 +1484,7 @@ async function act(fn,intent){
   useRules(s);
   const err=fn(s);
   if(err){ toast(err); return; }
+  if(intent&&(intent.a==='throw'||intent.a==='draw')) movedSelf(s,me);
   s.v=(s.v||0)+1;
   sel.clear();
   if(mode==='local'){ const pv=S; S=s; afterState(pv); return; }
@@ -1578,12 +1611,8 @@ function scheduleTimeout(cur){
   const due=(S.turnAt||Date.now())+RULES.turnTimer*1000+400-Date.now();
   autoTimer=setTimeout(()=>{
     if(!S||S.phase!=='play'||S.round+':'+S.turn+':'+S.turnAt!==key) return;
-    const id=S.players[S.turn].id, nm=S.players[S.turn].name;
-    act(s=>{
-      if(s.step==='throw'){ const e=doThrow(s,id,botThrow(s.hands[id])); if(e) return e; }
-      const hp=potatoCard(s), e2=doDraw(s,id,hp?'avail':'deck',hp); if(e2) return e2;
-      addLog(s,{t:'timeout',n:nm});
-    });
+    const id=S.players[S.turn].id;
+    act(s=>timeoutMove(s,id));
   }, Math.max(0,due));
 }
 function timeLeft(){ if(!S||S.phase!=='play'||!RULES.turnTimer||!roundLive(S)) return null; return Math.max(0,Math.ceil(((S.turnAt||0)+RULES.turnTimer*1000-Date.now())/1000)); }
@@ -2360,7 +2389,7 @@ function renderResult(){
   const r=S.result; if(!r) return;
   const caller=pname(S,r.caller), win=pname(S,r.winner);
   const over=S.phase==='over';
-  const champ=aliveList(S)[0];
+  const champ=r.forfeit&&r.winner?S.players.find(p=>p.id===r.winner):aliveList(S)[0];
   const canNext = mode==='local' || S.host===me;
   const head = over
     ? (champ&&champ.id===me ? L(`<h3><span class="hl">You</span> win the game!</h3>`,`<h3><span class="hl">Jij</span> wint het spel!</h3>`) : L(`<h3><span class="hl">${esc(champ?champ.name:'Nobody')}</span> wins the game!</h3>`,`<h3><span class="hl">${esc(champ?champ.name:'Niemand')}</span> wint het spel!</h3>`))
@@ -2371,7 +2400,7 @@ function renderResult(){
       : L(`<h3>${esc(caller)} called <span class="hl">Balls</span> with ${r.cv}</h3><p class="sub">Lowest hand. ${esc(caller)} deals next round.</p>`,`<h3>${esc(caller)} riep <span class="hl">Balzak</span> met ${r.cv}</h3><p class="sub">Laagste hand. ${esc(caller)} deelt de volgende ronde.</p>`);
   layer.innerHTML=`<div class="overlay"><div class="sheet" role="dialog" aria-label="${L('Round result','Uitslag van de ronde')}">
     ${head}
-    ${over?`<p class="sub">${L(`Final round: ${esc(caller)} called ${r.falseB?'false ':''}Balls with ${r.cv}.`,`Laatste ronde: ${esc(caller)} riep ${r.falseB?'valse ':''}Balzak met ${r.cv}.`)}</p>`:''}
+    ${over?`<p class="sub">${r.forfeit?(r.forfeit===me?L('You missed three turns in a row and had to leave, so the match is over.','Je miste drie beurten achter elkaar en moest het potje verlaten, dus het potje is voorbij.'):L(`${esc(pname(S,r.forfeit))} missed three turns in a row and had to leave, so the match is over.`,`${esc(pname(S,r.forfeit))} miste drie beurten achter elkaar en moest het potje verlaten, dus het potje is voorbij.`)):L(`Final round: ${esc(caller)} called ${r.falseB?'false ':''}Balls with ${r.cv}.`,`Laatste ronde: ${esc(caller)} riep ${r.falseB?'valse ':''}Balzak met ${r.cv}.`)}</p>`:''}
     ${over?`<h4 class="sec">${L('Match summary','Samenvatting')}</h4>${statsHTML()}<h4 class="sec">${L('Round by round','Per ronde')}</h4>${historyHTML()}`:''}
     <div class="res" ${over?'hidden':''}>${r.rows.map(x=>`<div class="rrow ${x.id===r.winner?'win':''}">
       <span class="who">${rankBadge(S,x.id)} ${esc(pname(S,x.id))}${x.id===r.winner?`<span class="tagn">${L('round win','rondewinst')}</span>`:''}${x.notes.map(n=>`<span class="tagn ${n==='Eliminated'?'bad':''}">${esc(n==='Eliminated'?L('Eliminated','Uitgeschakeld'):n)}</span>`).join('')}</span>
